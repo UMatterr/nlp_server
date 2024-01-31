@@ -1,0 +1,7 @@
+flask
+flask-restx
+numpy
+pandas
+transformers
+tqdm
+#torch==2.1.2+cpu
