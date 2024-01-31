@@ -1,12 +1,6 @@
-## Compose sample application
+## nlp backend server 
 
-### Use with Docker Development Environments
-
-You can open this sample in the Dev Environments feature of Docker Desktop version 4.12 or later.
-
-[Open in Docker Dev Environments <img src="../open_in_new.svg" alt="Open in Docker Dev Environments" align="top"/>](https://open.docker.com/dashboard/dev-envs?url=https://github.com/docker/awesome-compose/tree/master/flask)
-
-### Python/Flask application
+### Powered by Python/Flask/Pytorch
 
 Project structure:
 ```
@@ -27,13 +21,13 @@ services:
      context: app
      target: builder
     ports: 
-      - '8000:8000'
+      - '8000:8000' 
 ```
 
-## Deploy with docker compose
+## Deploy with docker compose ( Recommened when you run in on your local PC )
 
 ```
-$ docker compose up -d
+$ **docker compose up -d**
 [+] Building 1.1s (16/16) FINISHED
  => [internal] load build definition from Dockerfile                                                                                                                                                                                       0.0s
     ...                                                                                                                                         0.0s
@@ -43,22 +37,19 @@ $ docker compose up -d
  ⠿ Container flask-web-1  Started
 ```
 
-## Expected result
+## Expected result with docker compose
 
 Listing containers must show one container running and the port mapping as below:
 ```
-$ docker compose ps
+$ **docker compose ps**
 NAME                COMMAND             SERVICE             STATUS              PORTS
 flask-web-1         "python3 app.py"    web                 running             0.0.0.0:8000->8000/tcp
 ```
 
-After the application starts, navigate to `http://localhost:8000` in your web browser or run:
-```
-$ curl localhost:8000
-Hello World!
-```
+After the application starts, navigate to `http://localhost:8000` in your web browser
+
 
 Stop and remove the containers
 ```
-$ docker compose down
+$ **docker compose down**
 ```
