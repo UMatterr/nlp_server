@@ -24,7 +24,7 @@ services:
       - '8000:8000' 
 ```
 
-## Deploy with docker compose ( Recommened when you test on your local PC )
+## Deploy with docker compose ( when you test on your local PC )
 
 ```
 $ docker compose up -d
@@ -53,7 +53,7 @@ Stop and remove the containers
 ```
 $ **docker compose down**
 ```
-## Deploy with docker compose ( Recommened when you test on a remote server )
+## Deploy with docker compose ( when you test on a remote server )
 
 ```
 $ docker pull quickerj/umatter
