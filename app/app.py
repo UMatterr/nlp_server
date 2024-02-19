@@ -4,16 +4,11 @@ from transformers import GPT2LMHeadModel, AutoTokenizer
 import torch
 import pandas as pd
 import argparse
+import utils
 from os import path
 
-import corrector
-import formal
-import informal
-import chuseok
+from generator import chuseok
 
-typos_corrector = None
-formal_converter = None
-informal_converter = None
 chuseok_generator = None
 
 app = Flask(__name__)
@@ -33,9 +28,6 @@ events = {('1','생일',1),('2','합격',1),('3','입학',1),('4','졸업',1),('
 
 def none_or_empty(str):
     return (str == None) | (str == '')
-
-def correct(str):
-    return typos_corrector.convert(str)
 
 def get_dummy_phrase(user_id, friend_id, event_id, keyword):
     if event_id == '1':
@@ -62,11 +54,11 @@ def post_dummy_phrase(event_id, keyword, src):
 def get_dummy_convert(src, convert_type):
     
     if convert_type == 'formal':
-        return correct(formal_converter.convert(src))
+        return utils.correct(utils.toformal(src))
     elif convert_type == 'informal':
-        return correct(informal_converter.convert(src))
+        return utils.correct(utils.toinformal(src))
     else:
-        return src
+        return utils.correct(src)
 
 
 parser = reqparse.RequestParser()
@@ -191,9 +183,6 @@ class Converted(Resource):
         return {'converted': get_dummy_convert(src, how)}
         
 if __name__ == "__main__":
-    typos_corrector = corrector.TyposCorrector()
     chuseok_generator = chuseok.ChuseokGenerator()
-    informal_converter = informal.ToInformalConverter()
-    formal_converter = formal.ToFormalConverter()
 		
     app.run(debug=False, host='0.0.0.0', port=8000)
