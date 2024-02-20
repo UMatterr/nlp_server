@@ -132,7 +132,7 @@ def reflenish_cache_texts(dbconn, event_id, first=False):
     if first == True:
         generate_nums = pre_generate_num
     else:
-        generate_nums = pre_generate_num/10
+        generate_nums = int(pre_generate_num/10)
 
     # 생성할 event 목록을 events 테이블에서 가져온다.
     event_ids = []
@@ -158,10 +158,11 @@ def reflenish_cache_texts(dbconn, event_id, first=False):
 
         # 각 모델별로 문장을 생성한다.
         # TODO: 맞춤범, 중복확인
-        sentences = generator.generateN(generate_nums)
-
-        # cache_texts 테이블이 생성한 문장을 저장한다.
-        tb_cache_texts.replenish(event_id, sentences)
+        if generate_nums > 0:
+            sentences = generator.generateN(generate_nums)
+            # cache_texts 테이블이 생성한 문장을 저장한다.
+            if len(sentences) > 0:
+                tb_cache_texts.replenish(event_id, sentences)
 
     # 새로 연결했다면 연결 종료
     if new_dbconn == True:

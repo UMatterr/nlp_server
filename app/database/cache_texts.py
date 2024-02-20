@@ -21,6 +21,7 @@ class CacheTexts():
         s_columns = ', '.join(columns)
         s_values = ', '.join(values)
         query = f"INSERT INTO {table} ({s_columns}) VALUES {s_values}"
+        print(query)
         self.db.execute(query)
 
     def get_count(self, event_id):
