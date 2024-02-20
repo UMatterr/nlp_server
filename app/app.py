@@ -19,7 +19,6 @@ app = Flask(__name__)
 api = Api(app, title='NLP Server API', description=\
     'default 클릭해주세요\n\
     펼쳐지는 API 목록 중 events -> phrase -> converted 순으로 테스트 해주세요\n\
-    -> (convert 테스트시 현재 테스트용으로 src 값을 생일축하로 고정)\n\
     -----------------------------------------------------------------\n\
     ---- "API 목록 -> Try it out" 클릭후 입력할 parameter ----\n\
     -----------------------------------------------------------------\n\
@@ -32,6 +31,16 @@ def none_or_empty(str):
     return (str == None) | (str == '')
         
 def get_converted(src_list, convert_type, use_corrector):
+    """문장 목록을 전달받아 존댓말,반말,그대로 등으로 변환하여 반환한다.
+
+    Args:
+        src_list (list of string): array of string
+        convert_type (string): <formal|informal|asis>
+        use_corrector (bool): <True|False>
+
+    Returns:
+        list of string: 변환된 문장 list
+    """
     
     converted_list = None
     if convert_type == 'formal':
@@ -39,7 +48,7 @@ def get_converted(src_list, convert_type, use_corrector):
     elif convert_type == 'informal':
         converted_list = utils.toinformal(src_list)
     else:
-        converted_list = src
+        converted_list = src_list
 
     if use_corrector == True:
         return utils.correct(converted_list)
@@ -51,6 +60,7 @@ parser = reqparse.RequestParser()
 # /phrase/<event_id>?use_cache=[1|0]&how=[informal|formal|asis]
 parser.add_argument("use_cache", type=int)
 parser.add_argument("how", type=str)
+"""
 # event id 가 기타에 해당하는 경우엔 keyword가 반드시 필요
 # /phrase/99?use_cache=[1|0]&keyword=소개팅&src=<저장할 문장>
 parser.add_argument("keyword", type=str)
@@ -62,6 +72,7 @@ parser.add_argument("extrainfo", type=str)
 parser.add_argument("user_id", type=str)
 parser.add_argument("friend_id", type=str)
 parser.add_argument("src", type=str)
+"""
 
 @api.route('/events/<string:status>')
 class Events(Resource):
