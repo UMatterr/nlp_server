@@ -23,12 +23,19 @@ class Events():
         else:
             return []
 
-
     def get_name_list(self):
         if not self.is_valid(self.df):
             self.update()
         if self.is_valid(self.df):
             return self.df['event_name'].to_list()
+        else:
+            return []
+
+    def get_list(self):
+        if not self.is_valid(self.df):
+            self.update()
+        if self.is_valid(self.df):
+            return self.df[['id','event_name']].values
         else:
             return []
 

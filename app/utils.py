@@ -25,6 +25,7 @@ def generate(input_text, tokenizer, model, num):
 
         if cnt % 100 == 0 and cnt != 0:
             print(sentence)
+        sentence = sentence.replace("'","")
         sentence_list.append(sentence)
     return sentence_list
 
@@ -85,6 +86,29 @@ def toinformal(src_list):
         converted_list.append(g_informal_converter.convert(src))
     return converted_list
 
+# <초기 cache 준비>
+# 모든 event에 대해 문장을 생성하여 cache_texts에 채운다.
+def initialize_cache_texts(dbconn):
+
+    new_dbconn = False
+    if dbconn == None:
+        dbconn = db.DB()
+        new_dbconn = True
+    assert(dbconn != None)
+
+    tb_config = config.Config(dbconn)
+    cache_texts_filled = tb_config.get_config('cache_texts_filled')
+
+    if cache_texts_filled != '1':
+        reflenish_cache_texts(dbconn, -1, True)
+        tb_config.set_config('cache_texts_filled','1')
+
+    # 새로 연결했다면 연결 종료
+    if new_dbconn == True:
+        dbconn.disconnect()
+        new_dbconn = False
+
+
 # <문장 준비>
 # 각 event에 해당하는 문장을 생성하여 cache_texts 에 채운다.
 # first가 True일때는 각 event별로 config.pre_generate_num 수만큼 생성 (최초)
@@ -112,7 +136,7 @@ def reflenish_cache_texts(dbconn, event_id, first=False):
 
     # 생성할 event 목록을 events 테이블에서 가져온다.
     event_ids = []
-    if event_id != -1:
+    if event_id == -1:
         tb_events = events.Events(dbconn)
         event_ids = tb_events.get_id_list()
     else:
@@ -176,14 +200,13 @@ def get_five_messages(dbconn, event_id, use_cache, how_to_convert):
     # cache에서 5개 추출
     # TODO: 맞춤법은 생성할때 맞춘다.
     sentences = tb_cache_texts.get_random5(event_id)
-    converted = []
-    for sentence in sentences:
-        if how_to_convert == 'formal':
-            converted.append(toformal(sentence))
-        elif how_to_convert == 'informal':
-            converted.append(toinformal(sentence))
-        else:
-            converted.append(sentence)
+    converted = None
+    if how_to_convert == 'formal':
+        converted = toformal(sentences)
+    elif how_to_convert == 'informal':
+        converted = toinformal(sentences)
+    else:
+        converted = sentences
 
     # 새로 연결했다면 연결 종료
     if new_dbconn == True:

@@ -7,10 +7,8 @@ class InputTexts():
 
     def __init__(self, db):
         self.db = db
-        self.update()
 
     def add(self, event_id, sentences):
-        # input_texts 에 추가한다.
         table = "input_texts"
         columns = [
             "input_text", "enable", "event_id"

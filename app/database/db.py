@@ -32,7 +32,6 @@ class DB():
     def select(self, sql):
         if self.eg != None:
             df = pd.read_sql(sql, self.eg)
-            print(df)
             return df 
         return None
 

@@ -8,8 +8,12 @@ import utils
 from os import path
 
 from generator import chuseok
+from database import db
+from database import events
+from database import input_texts
 
 chuseok_generator = None
+g_dbconn = None
 
 app = Flask(__name__)
 api = Api(app, title='NLP Server API', description=\
@@ -24,32 +28,8 @@ api = Api(app, title='NLP Server API', description=\
     how -> formal or informal 입력\n\
     -----------------------------------------------------------------\n')
 
-events = {('1','생일',1),('2','합격',1),('3','입학',1),('4','졸업',1),('5','입사',1),('6','부고',0), ('7','퇴사',0),('8','불합격',0),('9','추석',1),('999','기타',0)}
-
 def none_or_empty(str):
     return (str == None) | (str == '')
-
-def get_dummy_phrase(user_id, friend_id, event_id, keyword):
-    if event_id == '1':
-        return '생일 축하해'
-    elif event_id == '2':
-        return '합격 축하해'
-    elif event_id == '3':
-        return '입학 축하해'
-    elif event_id == '4':
-        return '졸업 축하해'
-    elif event_id == '5':
-        return '입사 축하해'
-    elif event_id == '9':
-        return correct(chuseok_generator.generate())
-    elif event_id == '999':
-        return keyword + ' 축하해'
-    else:
-        return 'It is not allowed to generate a phrase for disabled event type'
-
-def post_dummy_phrase(event_id, keyword, src):
-    print("문구 저장")
-    return True
         
 def get_converted(src_list, convert_type, use_corrector):
     
@@ -68,8 +48,9 @@ def get_converted(src_list, convert_type, use_corrector):
 
 
 parser = reqparse.RequestParser()
-# /phrase/<event_id>?use_cache=[1|0]
+# /phrase/<event_id>?use_cache=[1|0]&how=[informal|formal|asis]
 parser.add_argument("use_cache", type=int)
+parser.add_argument("how", type=str)
 # event id 가 기타에 해당하는 경우엔 keyword가 반드시 필요
 # /phrase/99?use_cache=[1|0]&keyword=소개팅&src=<저장할 문장>
 parser.add_argument("keyword", type=str)
@@ -86,21 +67,21 @@ parser.add_argument("src", type=str)
 class Events(Resource):
     
     def get(self, status):
-        """ 이벤트 목록을 반환한다 status: <all, enabled, disabled>
+        """ 이벤트 목록을 반환한다 status: <all, enabled, disabled> -> 현재는 all로만 동작
         Examples 1: GET /events/all
         Examples 2: GET /events/enabled
         Exmaples 3: GET /events/disabled
 
         Returns: {'events':[{'event_id':'event_name'}...]}
         """
+        assert(g_dbconn)
+
+        tb_events = events.Events(g_dbconn)
+        event_list = tb_events.get_list()
+
         return_events = []
-        for item in events:
-            if (status == 'enabled') & (item[2] == 1):
-                return_events.append({item[0]:item[1]})
-            elif (status == 'disabled') & (item[2] == 0):
-                return_events.append({item[0]:item[1]})
-            elif (status == 'all'):
-                return_events.append({item[0]:item[1]})
+        for item in event_list:
+            return_events.append({item[0]:item[1]})
         return {'events':return_events}
 
 @api.route('/phrase/<string:event_id>')
@@ -108,47 +89,45 @@ class Phrase(Resource):
     
     def get(self, event_id):
         """이벤트 문구를 반환한다 event_id: 이벤트 종류 id
-        Args: user_id/friend_id (Optional): 보내는사람/받는사람, use_cache (Optional): cache 사용 여부 [1|0], default(0), keyword (Optional): event_id가 99(기타)
+        Args: use_cache (Optional): cache 사용 여부 [1|0], default(0), how (Optional): 반말/존댓말/그대로 [informal|formal|asis]
 
-        Examples 1: GET /phrase/1?user_id=1234&use_cache=1          <- 생일(1), 보내는사람 표시 (O) 받는사람 표시(X), (use_cache=1) 기존에 사용후 저장한 메시지중 택1
-        Examples 2: GET /phrase/1?friend_id=4321&use_cache=1        <- 생일(1), 보내는사람 표시 (X) 받는사람 표시(O), (use_cache=1) 기존에 사용후 저장한 메시지중 택1
-        Examples 3: GET /phrase/2?use_cache=0                       <- 합격(2), 보내는사람 표시 (X) 받는사람 표시(X), (use_cache=0) 새로 생성한 메시지 반환
-        Examples 4: GET /phrase/1?location=seoul&extrainfo=weather  <- 생일(1), 위치정보 사용 시에는 use_cache=1 은 무시된다.
+        Examples 1: GET /phrase/2?use_cache=0&how=informal     <- 새해(2), 새로 생성한 메시지(use_cache=0), 반말(how=informal)
 
         Returns: {'phrase':'generated sentence for a event'}
         """
-        user_id = parser.parse_args()['user_id']
-        friend_id = parser.parse_args()['friend_id']
         use_cache = parser.parse_args()['use_cache']
         if use_cache == None:
             use_cache = 0
-        key_word = parser.parse_args()['keyword']
-        location = parser.parse_args()['location']
-        if none_or_empty(location) == False:
-            use_cache = 0
 
-        # TODO: user_id , friend_id 문구에 보내는 사람 , 받는 사람 표시가 필요한 경우
-        # TODO: use_cache 가 1인 경우 event_id 에 해당하는 문구 중 기존에 생성된 문구를 반환한다. 일단 무시
-        print("use_cache:", use_cache)
-        return {'phrase': get_dummy_phrase(user_id, friend_id, event_id, key_word)}
+        how = parser.parse_args()['how']
+        if how == None:
+            how = 'asis'
+
+        event_id = int(event_id)
+        use_cache = bool(use_cache)
+
+        assert(g_dbconn)
+
+        return {'phrase': utils.get_five_messages(g_dbconn, event_id, use_cache, how)}
 
     def post(self, event_id):
         """이벤트 문구를 저장한다 event_id: 이벤트 종류 id
-        Args: user_id/friend_id (Optional): 보내는사람/받는사람, keyword (optional)
+        Args: 
         
-        Examples 1: POST /phrase/1?user_id=1234&friend_id=4321&keyword=<소개팅>&src=<기타/소개팅 일때 저장할 문구>
-        Examples 2: POST /phrase/2?user_id=1234&friend_id=4321&src=<저장할 문구>
+        Examples 1: POST /phrase/1  -> 1:연말 인사
+                    BODY: { "content": ["sentence to store1", "sentence to store2"] }
         
         Returns: {'result':'ok | error'}
         """
-
-        # TODO: 저장할 문구에 user_id, friend_id 에 해당하는 이름이 있으면 제거
-        user_id = parser.parse_args()['user_id']
-        friend_id = parser.parse_args()['friend_id']
-        keyword = parser.parse_args()['keyword']
-        src = parser.parse_args()['src']
+        event_id = int(event_id)
+        content = request.json.get('content')
+        print(content)
         
-        post_dummy_phrase(event_id, keyword, src)
+        assert(g_dbconn)
+
+        tb_input_texts = input_texts.InputTexts(g_dbconn)
+        tb_input_texts.add(event_id, content)
+
 
         return {'result':'ok'}
 
@@ -170,6 +149,16 @@ class Converted(Resource):
 
         
 if __name__ == "__main__":
+
+    if g_dbconn == None:
+        g_dbconn = db.DB()
+    assert(g_dbconn != None)
+
+    utils.initialize_cache_texts(g_dbconn)
     #chuseok_generator = chuseok.ChuseokGenerator()
 		
     app.run(debug=True, host='0.0.0.0', port=8000)
+
+    if g_dbconn != None:
+        g_dbconn.disconnect()
+        g_dbconn = None

@@ -7,7 +7,6 @@ class CacheTexts():
 
     def __init__(self, db):
         self.db = db
-        self.update()
 
     def replenish(self, event_id, sentences):
         # cache_texts 에 추가한다.
