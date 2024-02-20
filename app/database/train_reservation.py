@@ -1,5 +1,5 @@
-import db
-import config
+from database import db
+from database import config
 import pandas as pd
 
 class TrainReservation():

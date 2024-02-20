@@ -7,6 +7,6 @@ tqdm
 sentencepiece
 pyarrow
 sqlalchemy
-psycopg2
+psycopg2-binary
 apscheduler
 #torch==2.1.2+cpu

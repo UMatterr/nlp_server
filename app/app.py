@@ -1,4 +1,4 @@
-from flask import Flask, abort
+from flask import Flask, abort, request
 from flask_restx import Api, Resource, reqparse
 from transformers import GPT2LMHeadModel, AutoTokenizer
 import torch
@@ -14,7 +14,7 @@ chuseok_generator = None
 app = Flask(__name__)
 api = Api(app, title='NLP Server API', description=\
     'default 클릭해주세요\n\
-    펼쳐지는 API 목록 중 events -> phrase -> convert 순으로 테스트 해주세요\n\
+    펼쳐지는 API 목록 중 events -> phrase -> converted 순으로 테스트 해주세요\n\
     -> (convert 테스트시 현재 테스트용으로 src 값을 생일축하로 고정)\n\
     -----------------------------------------------------------------\n\
     ---- "API 목록 -> Try it out" 클릭후 입력할 parameter ----\n\
@@ -51,14 +51,20 @@ def post_dummy_phrase(event_id, keyword, src):
     print("문구 저장")
     return True
         
-def get_dummy_convert(src, convert_type):
+def get_converted(src_list, convert_type, use_corrector):
     
+    converted_list = None
     if convert_type == 'formal':
-        return utils.correct(utils.toformal(src))
+        converted_list = utils.toformal(src_list)
     elif convert_type == 'informal':
-        return utils.correct(utils.toinformal(src))
+        converted_list = utils.toinformal(src_list)
     else:
-        return utils.correct(src)
+        converted_list = src
+
+    if use_corrector == True:
+        return utils.correct(converted_list)
+    else:
+        return converted_list
 
 
 parser = reqparse.RequestParser()
@@ -149,40 +155,21 @@ class Phrase(Resource):
 @api.route('/converted/<string:how>')
 class Converted(Resource):
 
-    def get(self, how):
-        """이벤트 문구를 (존댓말/반말/평소말투)로 변환한다 how가 asusual 일때는 user_id, friend_id 는 반드시 전달해야 함
-        Args: user_id/friend_id: 보내는사람/받는사람, src: 변환할 문장
+    def post(self, how):
+        """이벤트 문구를 (존댓말/반말)로 변환한다 
 
-        Examples 1: GET /converted/formal?src=생일축하해                                    <- 존댓말 변환
-        Examples 2: GET /converted/informal?src=생일축하해요                               <- 반말 변환
-        Examples 3: GET /converted/asusual?user_id=1234&friend_id=4321&src=생일축하합니다. <- 평소말투 변환 (반드시 user_id, friend_id 가 지정되어야 함)          
+        Examples 1: POST /converted/formal  <- 존댓말 변환
+        Examples 2: POST /converted/informal <- 반말 변환
+                    BODY: { "content": ["sentence to convert1", "sentence to convert2"] }
 
-        Returns: {'converted':'converted sentence for a event'}
+        Returns: {'converted':['converted sentence1', 'converted sentence2'] }
         """
-        user_id = parser.parse_args()['user_id']
-        friend_id = parser.parse_args()['friend_id']
-        src = parser.parse_args()['src']
-        # TODO: dummy code 이므로 추후 삭제
-        # TODO: url encoding 적용 필요
-        if (how == 'formal') & none_or_empty(src):
-            src = '생일축하해'
-        elif (how == 'informal') & none_or_empty(src):
-            src = '생일축하해요'
+        content = request.json.get('content')
 
-        # 평소 말투 적용시에는 반드시 user_id, friend_id 가 지정되어야 한다.
-        if (how=='asusual') & ( none_or_empty(user_id) | none_or_empty(friend_id) ):
-            abort(400, 'Invalid Request 1')
+        return { "converted": get_converted(content, how, False)}
 
-        # 변환할 문장은 빈값이 될 수 없다.
-        if none_or_empty(src):
-            abort(400, 'Invalid Request 2')
-            
-        # TODO: user_id 와 friend_id 에 해당하는 어투를 적용한다. 일단 무시
-        print("user_id:", user_id)
-        print("friend_id:", friend_id)
-        return {'converted': get_dummy_convert(src, how)}
         
 if __name__ == "__main__":
-    chuseok_generator = chuseok.ChuseokGenerator()
+    #chuseok_generator = chuseok.ChuseokGenerator()
 		
-    app.run(debug=False, host='0.0.0.0', port=8000)
+    app.run(debug=True, host='0.0.0.0', port=8000)

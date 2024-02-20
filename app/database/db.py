@@ -1,6 +1,7 @@
 import psycopg2
 import pandas as pd
-from sqlalchemy import create_engine, sessionmaker
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
 
 class DB():
     eg = None

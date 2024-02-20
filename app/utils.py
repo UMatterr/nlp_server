@@ -57,23 +57,33 @@ g_typos_corrector = None
 g_formal_converter = None
 g_informal_converter = None
 
-def correct(src):
+def correct(src_list):
     global g_typos_corrector
     if g_typos_corrector == None:
         g_typos_corrector = corrector.TyposCorrector()
-    return g_typos_corrector.convert(src)
+    
+    corrected_list = []
+    for src in src_list:
+        corrected_list.append(g_typos_corrector.convert(src))
+    return corrected_list
 
-def toformal(src):
+def toformal(src_list):
     global g_formal_converter
     if g_formal_converter == None:
         g_formal_converter = formal.ToFormalConverter()
-    return g_formal_converter.convert(src)
+    converted_list = []
+    for src in src_list:
+        converted_list.append(g_formal_converter.convert(src))
+    return converted_list
 
-def toinformal(src):
+def toinformal(src_list):
     global g_informal_converter
     if g_informal_converter == None:
         g_informal_converter = informal.ToInformalConverter()
-    return g_informal_converter.convert(src)
+    converted_list = []
+    for src in src_list:
+        converted_list.append(g_informal_converter.convert(src))
+    return converted_list
 
 # <문장 준비>
 # 각 event에 해당하는 문장을 생성하여 cache_texts 에 채운다.

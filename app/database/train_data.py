@@ -1,4 +1,4 @@
-import db
+from database import db
 from sqlalchemy import MetaData, Table, Column, Integer, BINARY, TIMESTAMP, select
 
 
