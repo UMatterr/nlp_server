@@ -8,4 +8,6 @@
 - 재학습 기능 추가
 - DB transaction 처리 추가
 - 예외 처리 추가
+- 맞춤법 API 적용
 - 로그 추가 (가능하면 elk 활용)
+- nginx, uwsgi 연동 (가능하면)
