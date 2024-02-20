@@ -55,7 +55,7 @@ def get_converted(src_list, convert_type, use_corrector):
     else:
         return converted_list
 
-
+# URL arguments 파서 정의
 parser = reqparse.RequestParser()
 # /phrase/<event_id>?use_cache=[1|0]&how=[informal|formal|asis]
 parser.add_argument("use_cache", type=int)
@@ -166,7 +166,6 @@ if __name__ == "__main__":
     assert(g_dbconn != None)
 
     utils.initialize_cache_texts(g_dbconn)
-    #chuseok_generator = chuseok.ChuseokGenerator()
 		
     app.run(debug=True, host='0.0.0.0', port=8000)
 

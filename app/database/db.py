@@ -4,7 +4,11 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 class DB():
+    """ db연결을 핸들링하기위한 클래스
+    """
+
     eg = None
+
     def __init__(self):
         self.connect()
 
@@ -28,7 +32,6 @@ class DB():
         if self.eg != None:
             self.eg.execute(sql)
             
-
     def select(self, sql):
         if self.eg != None:
             df = pd.read_sql(sql, self.eg)

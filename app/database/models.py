@@ -1,19 +1,13 @@
 from database import db
 
 class Models():
+    """models 테이블을 다루기 위한 클래스
+    """
 
     db = None
 
     def __init__(self, db):
         self.db = db
-        self.update()
-
-    def update(self):
-        pass
-        if self.db != None:
-            self.df = self.db.select("select * from models where type='S'")
-        else:
-            self.df = None
 
     def get_models_by_eventid(self, event_id, model_type):
         # event_id, type 이 일치하는 모델중 최신 버전을 가져온다.
@@ -25,7 +19,7 @@ class Models():
             return ['','','','','']
 
     def is_valid(self, df):
-        if not isinstance(df, type(None)):
+        if not isinstance(df, type(None)) and (len(df) > 0):
             return True
         else:
             return False

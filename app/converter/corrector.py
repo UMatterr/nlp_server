@@ -2,6 +2,8 @@ import torch
 from transformers import T5ForConditionalGeneration, T5Tokenizer
 
 class TyposCorrector():
+    """맞춤법 교정 모델
+    """
     model = None
     tokenizer = None
     device = None

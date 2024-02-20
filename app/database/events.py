@@ -1,6 +1,8 @@
 from database import db
 
 class Events():
+    """events 테이블을 핸들링하기 위한 클래스
+    """
 
     df = None
     db = None
@@ -46,7 +48,7 @@ class Events():
         return self.df[self.df['event_name'] == name]['id'].item()
 
     def is_valid(self, df):
-        if not isinstance(df, type(None)):
+        if not isinstance(df, type(None)) and (len(df) > 0):
             return True
         else:
             return False

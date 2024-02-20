@@ -3,6 +3,17 @@ from tqdm import tqdm
 
 
 def generate(input_text, tokenizer, model, num):
+    """훈련이 완료된 모델로 text를 생성하는 기능
+
+    Args:
+        input_text (string): text 생성을 위한 초기 문자열
+        tokenizer (): transformer 모델 토커나이저
+        model (): transformer 모델 
+        num (int): 생성할 갯수
+
+    Returns:
+        list of string: 생성한 문자열을 list 타잎으로 반환
+    """
     sentence_list = []
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     token_ids = tokenizer(input_text + "|", return_tensors="pt")["input_ids"].to(device)
@@ -25,11 +36,13 @@ def generate(input_text, tokenizer, model, num):
 
         if cnt % 100 == 0 and cnt != 0:
             print(sentence)
+        # sql 에 포함될때 오류를 방지하기 위해
         sentence = sentence.replace("'","")
         sentence_list.append(sentence)
     return sentence_list
 
 def strings2trainable(train_prefix, string_list):
+    #문자열 배열을 tagging된 훈련 데이터로 변환한다.
     train_data_list = []
     for s in string_list:
         if s.endswith('\n') == False:
@@ -37,7 +50,7 @@ def strings2trainable(train_prefix, string_list):
         train_data_list.append(train_prefix + '|' + s)
     return ''.join(train_data_list).encode('utf-8')
 
-
+##################################################################################################################
 from generator import chuseok
 from generator.common import CommonGenerator
 from trainer.common import CommonTrainer
@@ -59,6 +72,7 @@ g_formal_converter = None
 g_informal_converter = None
 
 def correct(src_list):
+    #문자열 list를 입력받아 맞춤법이 교정된 목록을 생성하여 반환한다.
     global g_typos_corrector
     if g_typos_corrector == None:
         g_typos_corrector = corrector.TyposCorrector()
@@ -69,6 +83,7 @@ def correct(src_list):
     return corrected_list
 
 def toformal(src_list):
+    #문자열 list를 입력받아 존댓말로 변환된 목록을 생성하여 반환한다.
     global g_formal_converter
     if g_formal_converter == None:
         g_formal_converter = formal.ToFormalConverter()
@@ -78,6 +93,7 @@ def toformal(src_list):
     return converted_list
 
 def toinformal(src_list):
+    #문자열 list를 입력받아 반말로 변환된 목록을 생성하여 반환한다.
     global g_informal_converter
     if g_informal_converter == None:
         g_informal_converter = informal.ToInformalConverter()
@@ -87,9 +103,8 @@ def toinformal(src_list):
     return converted_list
 
 # <초기 cache 준비>
-# 모든 event에 대해 문장을 생성하여 cache_texts에 채운다.
 def initialize_cache_texts(dbconn):
-
+    # 모든 event에 대해 문장을 생성하여 cache_texts에 채운다.
     new_dbconn = False
     if dbconn == None:
         dbconn = db.DB()

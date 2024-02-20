@@ -47,7 +47,7 @@ class TrainReservation():
             where TR.enable=true and TR.status='N', TR.start_time < {now}"
 
         df = self.db.select(sql)
-        if len(df) > 0:
+        if self.is_valid(df):
             return df[['train_data_id', 'path', 'base', 'token_path', 'token_base', 'train_prefix']].values
         else:
             return []
@@ -84,7 +84,7 @@ class TrainReservation():
         return ts
 
     def is_valid(self, df):
-        if not isinstance(df, type(None)):
+        if not isinstance(df, type(None)) and (len(df) > 0):
             return True
         else:
             return False
