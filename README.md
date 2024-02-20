@@ -77,3 +77,7 @@ Stop and remove the containers
 ```
 $ docker kill 5af56732dec4
 ```
+
+Push to the DockerHub
+$ docker image tag nlp_server-web quickerj/umatter
+$ docker push quickerj/umatter
