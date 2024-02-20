@@ -8,4 +8,5 @@ sentencepiece
 pyarrow
 sqlalchemy
 psycopg2
+apscheduler
 #torch==2.1.2+cpu
