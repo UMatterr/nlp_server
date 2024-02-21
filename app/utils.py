@@ -126,6 +126,7 @@ def reflenish_cache_texts(dbconn, event_id, first=False):
 
     assert(dbconn != None)
 
+
     # first가 True 인 경우 각 이벤트 별로 pre_generate_num 수만큼 문장을 생성한다.
     # first가 False 인 경우 각 이벤트 별로 pre_generate_num/10 만큼 문장을 생성한다.
     tb_config = config.Config(dbconn)
@@ -159,6 +160,10 @@ def reflenish_cache_texts(dbconn, event_id, first=False):
 
         # 각 모델별로 문장을 생성한다.
         # TODO: 맞춤범, 중복확인
+        # 하나도 없을땐 최소 5개 생성한다.
+        if generate_nums <= 0:
+            generate_nums = 5
+
         if generate_nums > 0:
             sentences = generator.generateN(generate_nums)
             # cache_texts 테이블이 생성한 문장을 저장한다.
@@ -188,6 +193,10 @@ def get_five_messages(dbconn, event_id, use_cache, how_to_convert):
     if (have_enough_cache == False) or (use_cache == False):
         #  5개 생성 및 cache_text 에 삽입
         reflenish_cache_texts(dbconn, event_id)
+
+        # 여기서 db에 반영해줘야 추출 가능
+        dbconn.session().commit()
+        dbconn.session().begin()
 
     # cache에서 5개 추출
     # TODO: 맞춤법은 생성할때 맞춘다.

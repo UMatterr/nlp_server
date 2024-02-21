@@ -130,6 +130,7 @@ class Phrase(Resource):
         assert(g_dbconn)
         s = g_dbconn.session()
 
+        messages = []
         try:
             messages = utils.get_five_messages(g_dbconn, event_id, use_cache, how)
         except:
