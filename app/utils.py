@@ -118,7 +118,7 @@ def initialize_cache_texts(dbconn):
 # <문장 준비>
 # 각 event에 해당하는 문장을 생성하여 cache_texts 에 채운다.
 # first가 True일때는 각 event별로 config.pre_generate_num 수만큼 생성 (최초)
-# firsr가 False일때는 각 event별로 config.pre_generate_num/10 수만큼 생성 (cron)
+# firsr가 False일때는 각 event별로 config.pre_generate_num/10 수만큼 생성 (TODO:cron 하루에 한번)
 # event_id -1이 아닌 값이 주어지는 경우엔 해당 event만 처리한다.
 def reflenish_cache_texts(dbconn, event_id, first=False):
 
@@ -212,7 +212,7 @@ def get_five_messages(dbconn, event_id, use_cache, how_to_convert):
     return converted 
 
 # <문장 수집>
-# 특정 이벤트에 해당하는 사용자 입력을 재학습을 위해 input_texts 에 축적한다.
+# 특정 이벤트에 해당하는 사용자 입력을 재학습을 위해 input_texts 에 축적한다. TODO: cron 1시간 간격으로
 # 각 이벤트에 해당하는 message가 config.min_retrain_num 이상 쌓인 경우 재학습을 예약한다.
 # 중복 허용 X
 # queue 에서 받아서 별도의 thread 에서 돌리자 (db 연결도 별도)
@@ -283,7 +283,7 @@ def add_train_reservation(dbconn, event_id):
 
 
 # <재학습 기능>
-# cron: min_retrain_start_hour 부터 max_retrain_end_hour 까지 1시간 간격으로 확인
+# TODO: cron: min_retrain_start_hour 부터 max_retrain_end_hour 까지 1시간 간격으로 확인
 # 모델준비
 ### train_reservation 에 등록된 항목중 enable=True, status=N, start_time >= now()인 항목의 train_reservation.event_model_id로 event_model을 조회하여 model_id를 가져온다.
 ### model_id 로 models 를 조회하여 base 모델을 준비한다.
