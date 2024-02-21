@@ -99,7 +99,7 @@ class Events(Resource):
         else:
             s.commit()
         finally:
-            pass
+            s.close()
 
         return_events = []
         for item in event_list:
@@ -141,6 +141,8 @@ class Phrase(Resource):
             s.rollback()
         else:
             s.commit()
+        finally:
+            s.close()
 
         return {'phrase': messages}
 
@@ -172,7 +174,7 @@ class Phrase(Resource):
             s.commit()
             ret = "ok"
         finally:
-            pass
+            s.close()
 
         return {'result':ret}
 
@@ -210,10 +212,8 @@ if __name__ == "__main__":
     else:
         s.commit()
     finally:
-        pass
+        s.close()
     
-
-		
     app.run(debug=False, host='0.0.0.0', port=8000)
 
     if g_dbconn != None:
