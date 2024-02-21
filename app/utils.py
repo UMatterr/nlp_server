@@ -105,10 +105,6 @@ def toinformal(src_list):
 # <초기 cache 준비>
 def initialize_cache_texts(dbconn):
     # 모든 event에 대해 문장을 생성하여 cache_texts에 채운다.
-    new_dbconn = False
-    if dbconn == None:
-        dbconn = db.DB()
-        new_dbconn = True
     assert(dbconn != None)
 
     tb_config = config.Config(dbconn)
@@ -117,11 +113,6 @@ def initialize_cache_texts(dbconn):
     if cache_texts_filled != '1':
         reflenish_cache_texts(dbconn, -1, True)
         tb_config.set_config('cache_texts_filled','1')
-
-    # 새로 연결했다면 연결 종료
-    if new_dbconn == True:
-        dbconn.disconnect()
-        new_dbconn = False
 
 
 # <문장 준비>
@@ -133,11 +124,6 @@ def reflenish_cache_texts(dbconn, event_id, first=False):
 
     global g_service_generator
 
-    # db가 None 이면 새로 연결한다.
-    new_dbconn = False
-    if dbconn == None:
-        dbconn = db.DB()
-        new_dbconn = True
     assert(dbconn != None)
 
     # first가 True 인 경우 각 이벤트 별로 pre_generate_num 수만큼 문장을 생성한다.
@@ -179,11 +165,6 @@ def reflenish_cache_texts(dbconn, event_id, first=False):
             if len(sentences) > 0:
                 tb_cache_texts.replenish(event_id, sentences)
 
-    # 새로 연결했다면 연결 종료
-    if new_dbconn == True:
-        dbconn.disconnect()
-        new_dbconn = False
-
         
 # <문장 생성>
 # 특정 이벤트에 해당하는 5개의 message를 구한다.
@@ -193,11 +174,6 @@ def reflenish_cache_texts(dbconn, event_id, first=False):
 # hot_to_convert 에 따라 존댓말, 반말 변환을 한다.
 def get_five_messages(dbconn, event_id, use_cache, how_to_convert):
 
-    # db가 None 이면 새로 연결한다.
-    new_dbconn = False
-    if dbconn == None:
-        dbconn = db.DB()
-        new_dbconn = True
     assert(dbconn != None)
 
     tb_cache_texts = cache_texts.CacheTexts(dbconn)
@@ -224,11 +200,6 @@ def get_five_messages(dbconn, event_id, use_cache, how_to_convert):
     else:
         converted = sentences
 
-    # 새로 연결했다면 연결 종료
-    if new_dbconn == True:
-        dbconn.disconnect()
-        new_dbconn = False
-
     return converted 
 
 # <문장 수집>
@@ -238,11 +209,6 @@ def get_five_messages(dbconn, event_id, use_cache, how_to_convert):
 # queue 에서 받아서 별도의 thread 에서 돌리자 (db 연결도 별도)
 def add_user_inputs(dbconn, event_id, input_text):
 
-    # db가 None 이면 새로 연결한다.
-    new_dbconn = False
-    if dbconn == None:
-        dbconn = db.DB()
-        new_dbconn = True
     assert(dbconn != None)
 
     tb_config = config.Config(dbconn)
@@ -260,10 +226,6 @@ def add_user_inputs(dbconn, event_id, input_text):
     if have_enough_inputs == True:
         add_train_reservation(dbconn, event_id)
 
-    # 새로 연결했다면 연결 종료
-    if new_dbconn == True:
-        dbconn.disconnect()
-        new_dbconn = False
 
 # <재학습 예약>
 # 이미 동일한 이벤트에 대한 학습이 예약되어있는 경우 skip 한다.
@@ -277,11 +239,6 @@ def add_user_inputs(dbconn, event_id, input_text):
 ### status: N(ot started)
 def add_train_reservation(dbconn, event_id):
 
-    # db가 None 이면 새로 연결한다.
-    new_dbconn = False
-    if dbconn == None:
-        dbconn = db.DB()
-        new_dbconn = True
     assert(dbconn != None)
 
     tb_train_reservation = TrainReservation(dbconn)
@@ -315,10 +272,6 @@ def add_train_reservation(dbconn, event_id):
     tb_train_reservation.register(event_id, train_data_id)
 
 
-    # 새로 연결했다면 연결 종료
-    if new_dbconn == True:
-        dbconn.disconnect()
-        new_dbconn = False
 
 # <재학습 기능>
 # cron: min_retrain_start_hour 부터 max_retrain_end_hour 까지 1시간 간격으로 확인
@@ -336,11 +289,6 @@ def add_train_reservation(dbconn, event_id):
 ### train_reservation.status 를 C 또는 E로 바꾼다.
 def retrain(dbconn):
 
-    # db가 None 이면 새로 연결한다.
-    new_dbconn = False
-    if dbconn == None:
-        dbconn = db.DB()
-        new_dbconn = True
     assert(dbconn != None)
 
     # 모델준비
@@ -383,9 +331,4 @@ def retrain(dbconn):
             status = 'E'
 
         tb_train_reservation.update_train_status(train_data_id, status)
-
-    # 새로 연결했다면 연결 종료
-    if new_dbconn == True:
-        dbconn.disconnect()
-        new_dbconn = False
 

@@ -10,3 +10,4 @@ sqlalchemy
 psycopg2-binary
 apscheduler
 #torch==2.1.2+cpu
+#py-hanspell <- add it manally (README.md)

@@ -1,14 +1,11 @@
 import psycopg2
 import pandas as pd
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy import create_engine, text
+from sqlalchemy.orm import scoped_session, sessionmaker
 
 class DB():
-    """ db연결을 핸들링하기위한 클래스
-    """
-
     eg = None
-
+    session = None 
     def __init__(self):
         self.connect()
 
@@ -21,25 +18,16 @@ class DB():
                 'password':'umatteradmin!#',
                 'port':5432
             }
-            self.eg = create_engine(f"postgresql+psycopg2://{params['user']}:{params['password']}@{params['host']}:{params['port']}/{params['dbname']}")
-        return True if self.eg != None else False
+            self.eg = create_engine(f"postgresql+psycopg2://{params['user']}:{params['password']}@{params['host']}:{params['port']}/{params['dbname']}", isolation_level='SERIALIZABLE')
+            self.session = scoped_session(sessionmaker(autocommit=False, autoflush=False, bind=self.eg))
+        return True if ((self.eg != None) & (self.session != None)) else False
 
     def disconnect(self):
         if self.eg != None:
             self.eg.dispose()
 
     def execute(self, sql):
-        if self.eg != None:
-            self.eg.execute(sql)
-            
+        return self.session().execute(sql)
+
     def select(self, sql):
-        if self.eg != None:
-            df = pd.read_sql(sql, self.eg)
-            return df 
-        return None
-
-    def update(self, sql):
-        pass
-
-    def delete(self, sql):
-        pass
+        return pd.read_sql_query(sql, self.session().bind)

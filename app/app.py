@@ -86,9 +86,19 @@ class Events(Resource):
         Returns: {'events':[{'event_id':'event_name'}...]}
         """
         assert(g_dbconn)
+        s = g_dbconn.session()
 
-        tb_events = events.Events(g_dbconn)
-        event_list = tb_events.get_list()
+        try:
+            tb_events = events.Events(g_dbconn)
+            event_list = tb_events.get_list()
+        except:
+            print("An excetion occured on GET /events")
+            s.flush()
+            s.rollback()
+        else:
+            s.commit()
+        finally:
+            pass
 
         return_events = []
         for item in event_list:
@@ -118,8 +128,20 @@ class Phrase(Resource):
         use_cache = bool(use_cache)
 
         assert(g_dbconn)
+        s = g_dbconn.session()
 
-        return {'phrase': utils.get_five_messages(g_dbconn, event_id, use_cache, how)}
+        try:
+            messages = utils.get_five_messages(g_dbconn, event_id, use_cache, how)
+        except:
+            print("An excetion occured on GET /phrase")
+            s.flush()
+            s.rollback()
+        else:
+            s.commit()
+        finally:
+            pass
+
+        return {'phrase': messages}
 
     def post(self, event_id):
         """이벤트 문구를 저장한다 event_id: 이벤트 종류 id
@@ -130,17 +152,27 @@ class Phrase(Resource):
         
         Returns: {'result':'ok | error'}
         """
+        ret = "error"
         event_id = int(event_id)
         content = request.json.get('content')
-        print(content)
         
         assert(g_dbconn)
+        s = g_dbconn.session()
 
-        tb_input_texts = input_texts.InputTexts(g_dbconn)
-        tb_input_texts.add(event_id, content)
+        try:
+            tb_input_texts = input_texts.InputTexts(g_dbconn)
+            tb_input_texts.add(event_id, content)
+        except:
+            print("An excetion occured on POST /phrase")
+            s.flush()
+            s.rollback()
+        else:
+            s.commit()
+            ret = "ok"
+        finally:
+            pass
 
-
-        return {'result':'ok'}
+        return {'result':ret}
 
 @api.route('/converted/<string:how>')
 class Converted(Resource):
@@ -164,8 +196,20 @@ if __name__ == "__main__":
     if g_dbconn == None:
         g_dbconn = db.DB()
     assert(g_dbconn != None)
+    s = g_dbconn.session()
 
-    utils.initialize_cache_texts(g_dbconn)
+    try:
+        utils.initialize_cache_texts(g_dbconn)
+    except:
+        print("An excetion occured on initialize_cache_texts")
+        s.flush()
+        s.rollback()
+    else:
+        s.commit()
+    finally:
+        pass
+    
+
 		
     app.run(debug=True, host='0.0.0.0', port=8000)
 
