@@ -9,3 +9,4 @@
 - 맞춤법 API 적용(*) <-> 네이버 맞춤법 오류나네...
 - 로그 추가 (가능하면 elk 활용)
 - nginx, uwsgi 연동 (가능하면)
+- blacklist , replace 기능
