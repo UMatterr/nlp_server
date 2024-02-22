@@ -329,6 +329,8 @@ def retrain(dbconn):
 
         tb_train_reservation.update_train_status(train_data_id, status)
 
+        # TODO: 버전을 올린 T model을 models에 추가해야 할까??
+
         if trainer.train(data) == True:
             # 재학습 완료후 모델 저장
             ### model_id로 models를 조회하여 path를 가져온다. (get_train_data 에서 이미 가져옴)
