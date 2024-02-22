@@ -1,7 +1,17 @@
+#from hanspell import spell_checker
 import torch
 from transformers import T5ForConditionalGeneration, T5Tokenizer
 
 class TyposCorrector():
+    """맞춤법 교정 모델
+    """
+
+    """
+    def convert(self, input_text):
+        return spell_checker.check(input_text)
+    """
+
+
     model = None
     tokenizer = None
     device = None

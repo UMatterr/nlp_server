@@ -2,6 +2,8 @@ import torch
 from transformers import T5ForConditionalGeneration, T5Tokenizer
 
 class ToFormalConverter():
+    """존댓말 변환 모델
+    """
     model = None
     tokenizer = None
     device = None
