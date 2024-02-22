@@ -9,7 +9,6 @@ class TrainReservation():
 
     def __init__(self, db):
         self.db = db
-        self.update()
 
     def register(self, event_id, train_data_id):
 
@@ -18,7 +17,7 @@ class TrainReservation():
         if event_model_id < 0:
             return
         
-        available_time = self.get_available_time() 
+        available_time = self.get_avaliable_time() 
 
         sql = f"insert into train_reservation (start_time, enable, status, event_model_id, train_data_id) values ('{available_time}', true, 'N', {event_model_id}, {train_data_id})"
         self.db.execute(sql)
@@ -26,7 +25,7 @@ class TrainReservation():
 
     def get_count(self, event_id):
         # 이미 동일한 event 에 대해 C(omplete) 그리고 E(rror) 가 아닌 상태로 train_reservation 에 등록된 경우가 있는지 확인한다.
-        df = self.db.select(f"select count(*) from train_reservation TR inner join event_model EM on (EM.event_id = {event_id}) inner join models M on (M.id = EM.model_id and M.type = 'T') where (TR.status != 'C' and TR.status != 'E')")
+        df = self.db.select(f"select count(*) from train_reservation TR inner join event_model EM on (EM.id = TR.event_model_id and EM.event_id = {event_id}) inner join models M on (M.id = EM.model_id and M.type = 'T') where (TR.status != 'C' and TR.status != 'E')")
         if self.is_valid(df):
             return df['count'].item()
         else:

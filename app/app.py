@@ -1,18 +1,25 @@
 from flask import Flask, abort, request
 from flask_restx import Api, Resource, reqparse
 from transformers import GPT2LMHeadModel, AutoTokenizer
-import torch
+from os import path
 import pandas as pd
+import torch
 import argparse
 import utils
-from os import path
+import time
+
+from utils import g_q
+from utils import g_w
 
 from generator import chuseok
 from database import db
 from database import events
 from database import input_texts
 
-chuseok_generator = None
+from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.jobstores.base import JobLookupError
+
+g_sched = None
 g_dbconn = None
 
 app = Flask(__name__)
@@ -163,8 +170,9 @@ class Phrase(Resource):
         s = g_dbconn.session()
 
         try:
-            tb_input_texts = input_texts.InputTexts(g_dbconn)
-            tb_input_texts.add(event_id, content)
+            utils.add_user_inputs(g_dbconn, event_id, content)
+            #tb_input_texts = input_texts.InputTexts(g_dbconn)
+            #tb_input_texts.add(event_id, content)
         except Exception as e:
             print("An excetion occured on POST /phrase")
             print(e)
@@ -197,10 +205,19 @@ class Converted(Resource):
         
 if __name__ == "__main__":
 
+    # DB 연결
     if g_dbconn == None:
         g_dbconn = db.DB()
     assert(g_dbconn != None)
     s = g_dbconn.session()
+
+    # 스케쥴러 
+    if g_sched == None:
+        g_sched = BackgroundScheduler(timezone='Asia/Seoul')
+        g_sched.start()
+        # 03시에 (pre_generate_num/10) 만큼 문장 생성하여 DB에 추가
+        g_sched.add_job(utils.reflenish_cache_texts, 'cron', hour='5', minute='00', id='reflenish', args=[g_dbconn, -1, False, True])
+        g_sched.add_job(utils.retrain, 'cron', hour='0', minute='00', id='retrain', args=[g_dbconn])
 
     try:
         utils.initialize_cache_texts(g_dbconn)
@@ -219,3 +236,12 @@ if __name__ == "__main__":
     if g_dbconn != None:
         g_dbconn.disconnect()
         g_dbconn = None
+
+    if g_sched != None:
+        g_sched.shutdown()
+
+    if g_w != None:
+        g_w.join()
+
+    if g_q != None:
+        g_q.join()

@@ -1,6 +1,10 @@
 import torch
 from tqdm import tqdm
+import queue
+import threading
 
+g_q = None
+g_w = None
 
 def generate(input_text, tokenizer, model, num):
     """훈련이 완료된 모델로 text를 생성하는 기능
@@ -118,14 +122,21 @@ def initialize_cache_texts(dbconn):
 # <문장 준비>
 # 각 event에 해당하는 문장을 생성하여 cache_texts 에 채운다.
 # first가 True일때는 각 event별로 config.pre_generate_num 수만큼 생성 (최초)
-# firsr가 False일때는 각 event별로 config.pre_generate_num/10 수만큼 생성 (TODO:cron 하루에 한번)
+# firsr가 False일때는 각 event별로 config.pre_generate_num/10 수만큼 생성 (cron 하루에 한번)
 # event_id -1이 아닌 값이 주어지는 경우엔 해당 event만 처리한다.
-def reflenish_cache_texts(dbconn, event_id, first=False):
+def reflenish_cache_texts(dbconn, event_id, first=False, self_trasaction=False):
 
     global g_service_generator
 
     assert(dbconn != None)
 
+    print(event_id)
+    print(first)
+
+
+    s = None
+    if self_trasaction == True:
+        s = dbconn.session()
 
     # first가 True 인 경우 각 이벤트 별로 pre_generate_num 수만큼 문장을 생성한다.
     # first가 False 인 경우 각 이벤트 별로 pre_generate_num/10 만큼 문장을 생성한다.
@@ -170,6 +181,10 @@ def reflenish_cache_texts(dbconn, event_id, first=False):
             if len(sentences) > 0:
                 tb_cache_texts.replenish(event_id, sentences)
 
+    if self_trasaction == True:
+        s.commit()
+        s.close()
+
         
 # <문장 생성>
 # 특정 이벤트에 해당하는 5개의 message를 구한다.
@@ -211,8 +226,17 @@ def get_five_messages(dbconn, event_id, use_cache, how_to_convert):
 
     return converted 
 
+def _ReservationWorker():
+    global g_q
+
+    while True:
+        if g_q == None:
+            break
+        p_add_train_reservation, args = g_q.get()
+        p_add_train_reservation(*args)
+
 # <문장 수집>
-# 특정 이벤트에 해당하는 사용자 입력을 재학습을 위해 input_texts 에 축적한다. TODO: cron 1시간 간격으로
+# 특정 이벤트에 해당하는 사용자 입력을 재학습을 위해 input_texts 에 축적한다.
 # 각 이벤트에 해당하는 message가 config.min_retrain_num 이상 쌓인 경우 재학습을 예약한다.
 # 중복 허용 X
 # queue 에서 받아서 별도의 thread 에서 돌리자 (db 연결도 별도)
@@ -220,20 +244,30 @@ def add_user_inputs(dbconn, event_id, input_text):
 
     assert(dbconn != None)
 
+    global g_q
+    global g_w
+
+    if g_q == None:
+        g_q = queue.Queue()
+    if g_w == None:
+        g_w = threading.Thread(target=_ReservationWorker)
+        g_w.start()
+
     tb_config = config.Config(dbconn)
     min_retrain_num = int(tb_config.get_config("min_retrain_num"))
 
     have_enough_inputs = False
     tb_input_texts = input_texts.InputTexts(dbconn)
-    tb_input_texts.add(event_id, [input_text])
+    tb_input_texts.add(event_id, input_text)
 
-    available_input_texts_cnt = tb_input_texts.get_count()
+    available_input_texts_cnt = tb_input_texts.get_count(event_id)
 
     if available_input_texts_cnt >= min_retrain_num:
         have_enough_inputs = True
 
     if have_enough_inputs == True:
-        add_train_reservation(dbconn, event_id)
+        g_q.put( (add_train_reservation, [dbconn, event_id, True]))
+
 
 
 # <재학습 예약>
@@ -246,40 +280,61 @@ def add_user_inputs(dbconn, event_id, input_text):
 ### start_time: train_reservation 테이블을 조회하여 00~05시에 해당하는 시간에 훈련을 예약한다.
 ### enable: True
 ### status: N(ot started)
-def add_train_reservation(dbconn, event_id):
+def add_train_reservation(dbconn, event_id, self_transaction):
 
     assert(dbconn != None)
 
-    tb_train_reservation = TrainReservation(dbconn)
-    if tb_train_reservation.get_count(event_id) > 0:
-        # 이미 동일한 이벤트에 대한 학습이 예약되어있는 경우 skip 한다.
-        return
 
-    # TODO: 1 ~ 3에 대한 트랜잭션 처리가 반드시 필요
-    # 1. input_texts 에서 학습할 데이터를 추출한다.
-    # 2. train 가능한 형태로 변환한다. 
-    # 3. train_data 에 저장하고 train_data.id를 구한다.
-    # 4. train_data 에 저장한 data에 해당하는 항목을 input_texts 에서 disable 시킨다.
-    tb_input_texts = InputTexts(dbconn)
-    input_ids, input_texts = tb_input_texts.get_input_texts(event_id)
-    if len(input_ids) <= 0:
-        # 학습할 데이터가 없다면 skip 한다.
-        return
-    train_data = strings2trainable(input_texts)
 
-    tb_train_data = TrainData(dbconn)
-    train_data_id = tb_train_data.add_train_data(train_data)
+    s = None
+    if self_transaction == True:
+        s = dbconn.session()
 
-    tb_input_texts.disable_input_texts(input_ids)
+    try:
 
-    # train_reservation 에 등록한다.
-    ### event_model_id: event_model, models 에서 models.type=T(raining) 인 event_model.id 를 가져온다.
-    ### train_data_id: train_data에 저장할때 반환된 id
-    ### start_time: train_reservation 테이블을 조회하여 00~05시까지 start_time이 가장 덜 겹치는 시간
-    ### enable: True
-    ### status: N(ot started)
-    tb_train_reservation.register(event_id, train_data_id)
+        tb_train_reservation = train_reservation.TrainReservation(dbconn)
+        if tb_train_reservation.get_count(event_id) > 0:
+            # 이미 동일한 이벤트에 대한 학습이 예약되어있는 경우 skip 한다.
+            return
 
+        # 1. input_texts 에서 학습할 데이터를 추출한다.
+        # 2. train 가능한 형태로 변환한다. 
+        # 3. train_data 에 저장하고 train_data.id를 구한다.
+        # 4. train_data 에 저장한 data에 해당하는 항목을 input_texts 에서 disable 시킨다.
+        tb_input_texts = input_texts.InputTexts(dbconn)
+        input_ids, texts = tb_input_texts.get_input_texts(event_id)
+        if len(input_ids) <= 0:
+            # 학습할 데이터가 없다면 skip 한다.
+            return
+
+        tb_models = models.Models(dbconn)
+        _, _, _, _, train_prefix = tb_models.get_models_by_eventid(event_id, 'T')
+        data = strings2trainable(train_prefix, texts)
+
+        tb_train_data = train_data.TrainData(dbconn)
+        train_data_id = tb_train_data.add_train_data(data)
+
+        tb_input_texts.disable_input_texts(input_ids)
+
+        # train_reservation 에 등록한다.
+        ### event_model_id: event_model, models 에서 models.type=T(raining) 인 event_model.id 를 가져온다.
+        ### train_data_id: train_data에 저장할때 반환된 id
+        ### start_time: train_reservation 테이블을 조회하여 00~05시까지 start_time이 가장 덜 겹치는 시간
+        ### enable: True
+        ### status: N(ot started)
+        if len(train_data_id) > 0:
+            train_data_id = train_data_id[0]
+            tb_train_reservation.register(event_id, train_data_id)
+    except Exception as e:
+        print("An Exception occured in add_train_reservation")
+        print(e)
+        s.flush()
+        s.rollback()
+    else:
+        s.commit()
+    finally:
+        if self_transaction == True:
+            s.close()
 
 
 # <재학습 기능>
