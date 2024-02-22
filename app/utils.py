@@ -6,7 +6,35 @@ import threading
 g_q = None
 g_w = None
 
-def generate(input_text, tokenizer, model, num):
+def args2dict(args):
+    d = {}
+
+    if len(args) != 9:
+        return d
+
+    for i in range(9):
+        if (i == 0) & (args[i] != None):
+            d['min_length'] = args[i]
+        elif (i == 1) & (args[i] != None):
+            d['max_length'] = args[i]
+        elif (i == 2) & (args[i] != None):
+            d['top_p'] = args[i]
+        elif (i == 3) & (args[i] != None):
+            d['top_k'] = args[i]
+        elif (i == 4) & (args[i] != None):
+            d['repetition_penalty'] = args[i]
+        elif (i == 5) & (args[i] != None):
+            d['no_repeat_ngram_size'] = args[i]
+        elif (i == 6) & (args[i] != None):
+            d['temperature'] = args[i]
+        elif (i == 7) & (args[i] != None):
+            d['use_cache'] = args[i]
+        elif (i == 8) & (args[i] != None):
+            d['do_sample'] = args[i]
+    return d
+
+
+def generate(input_text, tokenizer, model, num, args):
     """훈련이 완료된 모델로 text를 생성하는 기능
 
     Args:
@@ -18,20 +46,21 @@ def generate(input_text, tokenizer, model, num):
     Returns:
         list of string: 생성한 문자열을 list 타잎으로 반환
     """
+
+    dict_args = args2dict(args)
+
     sentence_list = []
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     token_ids = tokenizer(input_text + "|", return_tensors="pt")["input_ids"].to(device)
     for cnt in tqdm(range(num)):
         gen_ids = model.generate(
             token_ids,
-            max_length=32,
-            repetition_penalty=2.0,
             pad_token_id=tokenizer.pad_token_id,
             eos_token_id=tokenizer.eos_token_id,
             bos_token_id=tokenizer.bos_token_id,
-            use_cache=True,
-            do_sample=True,
+            **dict_args
         )
+
         sentence = tokenizer.decode(gen_ids[0])
         sentence = sentence[sentence.index("|") + 1 :]
         if "<pad>" in sentence:
@@ -130,10 +159,6 @@ def reflenish_cache_texts(dbconn, event_id, first=False, self_trasaction=False):
 
     assert(dbconn != None)
 
-    print(event_id)
-    print(first)
-
-
     s = None
     if self_trasaction == True:
         s = dbconn.session()
@@ -161,8 +186,7 @@ def reflenish_cache_texts(dbconn, event_id, first=False, self_trasaction=False):
     # 각 event 에 해당하는 모델을 models 테이블에서 가져온다.
     # select M.* from models M inner join event_model EM on M.id = EM.model_id where EM.event_id = '1' and M.type='S' order by M.version desc limit 1
     for event_id in event_ids:
-        path, base, token_path, token_base, train_prefix = tb_models.get_models_by_eventid(event_id, 'S')
-
+        path, base, token_path, token_base, train_prefix, args = tb_models.get_models_by_eventid(event_id, 'S')
         if event_id in g_service_generator:
             generator = g_service_generator[event_id]
         else:
@@ -176,7 +200,7 @@ def reflenish_cache_texts(dbconn, event_id, first=False, self_trasaction=False):
             generate_nums = 5
 
         if generate_nums > 0:
-            sentences = generator.generateN(generate_nums)
+            sentences = generator.generateN(generate_nums, args)
             # cache_texts 테이블이 생성한 문장을 저장한다.
             if len(sentences) > 0:
                 tb_cache_texts.replenish(event_id, sentences)
@@ -308,7 +332,7 @@ def add_train_reservation(dbconn, event_id, self_transaction):
             return
 
         tb_models = models.Models(dbconn)
-        _, _, _, _, train_prefix = tb_models.get_models_by_eventid(event_id, 'T')
+        _, _, _, _, train_prefix, _ = tb_models.get_models_by_eventid(event_id, 'T')
         data = strings2trainable(train_prefix, texts)
 
         tb_train_data = train_data.TrainData(dbconn)

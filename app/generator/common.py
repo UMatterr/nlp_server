@@ -16,9 +16,9 @@ class CommonGenerator():
         self.model = self.model.to(device)
         self.train_prefix = train_prefix
 
-    def generate(self):
-	    return generate(self.train_prefix, self.tokenizer, self.model, 1)[0]
+    def generate(self, args):
+	    return generate(self.train_prefix, self.tokenizer, self.model, 1, args)[0]
 
-    def generateN(self, num):
-	    return generate(self.train_prefix, self.tokenizer, self.model, num)
+    def generateN(self, num, args):
+	    return generate(self.train_prefix, self.tokenizer, self.model, num, args)
 
