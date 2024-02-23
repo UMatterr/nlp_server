@@ -9,9 +9,6 @@ g_w = None
 def args2dict(args):
     d = {}
 
-    if len(args) != 9:
-        return d
-
     for i in range(9):
         if (i == 0) & (args[i] != None):
             d['min_length'] = args[i]
@@ -71,7 +68,9 @@ def generate(input_text, tokenizer, model, num, args):
             print(sentence)
         # sql 에 포함될때 오류를 방지하기 위해
         sentence = sentence.replace("'","")
+        sentence = sentence.replace('</s>',"")
         sentence_list.append(sentence)
+
     return sentence_list
 
 def strings2trainable(train_prefix, string_list):
@@ -163,51 +162,61 @@ def reflenish_cache_texts(dbconn, event_id, first=False, self_trasaction=False):
     if self_trasaction == True:
         s = dbconn.session()
 
-    # first가 True 인 경우 각 이벤트 별로 pre_generate_num 수만큼 문장을 생성한다.
-    # first가 False 인 경우 각 이벤트 별로 pre_generate_num/10 만큼 문장을 생성한다.
-    tb_config = config.Config(dbconn)
-    pre_generate_num = int(tb_config.get_config('pre_generate_num'))
-    if first == True:
-        generate_nums = pre_generate_num
-    else:
-        generate_nums = int(pre_generate_num/10)
-
-    # 생성할 event 목록을 events 테이블에서 가져온다.
-    event_ids = []
-    if event_id == -1:
-        tb_events = events.Events(dbconn)
-        event_ids = tb_events.get_id_list()
-    else:
-        event_ids.append(event_id)
-    
-    tb_cache_texts = cache_texts.CacheTexts(dbconn)
-
-    tb_models = models.Models(dbconn)
-    # 각 event 에 해당하는 모델을 models 테이블에서 가져온다.
-    # select M.* from models M inner join event_model EM on M.id = EM.model_id where EM.event_id = '1' and M.type='S' order by M.version desc limit 1
-    for event_id in event_ids:
-        path, base, token_path, token_base, train_prefix, args = tb_models.get_models_by_eventid(event_id, 'S')
-        if event_id in g_service_generator:
-            generator = g_service_generator[event_id]
+    try:
+        # first가 True 인 경우 각 이벤트 별로 pre_generate_num 수만큼 문장을 생성한다.
+        # first가 False 인 경우 각 이벤트 별로 pre_generate_num/10 만큼 문장을 생성한다.
+        tb_config = config.Config(dbconn)
+        pre_generate_num = int(tb_config.get_config('pre_generate_num'))
+        if first == True:
+            generate_nums = pre_generate_num
         else:
-            generator = CommonGenerator(path, token_path, train_prefix)
-            g_service_generator[event_id] = generator
+            generate_nums = int(pre_generate_num/10)
 
-        # 각 모델별로 문장을 생성한다.
-        # TODO: 맞춤범, 중복확인
-        # 하나도 없을땐 최소 5개 생성한다.
-        if generate_nums <= 0:
-            generate_nums = 5
+        # 생성할 event 목록을 events 테이블에서 가져온다.
+        event_ids = []
+        if event_id == -1:
+            tb_events = events.Events(dbconn)
+            event_ids = tb_events.get_id_list()
+        else:
+            event_ids.append(event_id)
+        
+        tb_cache_texts = cache_texts.CacheTexts(dbconn)
 
-        if generate_nums > 0:
-            sentences = generator.generateN(generate_nums, args)
-            # cache_texts 테이블이 생성한 문장을 저장한다.
-            if len(sentences) > 0:
-                tb_cache_texts.replenish(event_id, sentences)
+        tb_models = models.Models(dbconn)
+        # 각 event 에 해당하는 모델을 models 테이블에서 가져온다.
+        # select M.* from models M inner join event_model EM on M.id = EM.model_id where EM.event_id = '1' and M.type='S' order by M.version desc limit 1
+        for event_id in event_ids:
+            path, base, token_path, token_base, train_prefix, args = tb_models.get_models_by_eventid(event_id, 'S')
+            if event_id in g_service_generator:
+                generator = g_service_generator[event_id]
+            else:
+                eos_token = args[9]
+                generator = CommonGenerator(path, token_path, train_prefix, [eos_token])
+                g_service_generator[event_id] = generator
 
-    if self_trasaction == True:
-        s.commit()
-        s.close()
+            # 각 모델별로 문장을 생성한다.
+            # TODO: 맞춤범, 중복확인
+            # 하나도 없을땐 최소 5개 생성한다.
+            if generate_nums <= 0:
+                generate_nums = 5
+
+            if generate_nums > 0:
+                sentences = generator.generateN(generate_nums, args)
+                # cache_texts 테이블이 생성한 문장을 저장한다.
+                if len(sentences) > 0:
+                    tb_cache_texts.replenish(event_id, sentences)
+    except:
+        if self_trasaction == True:
+            s.flush()
+            s.rollback()
+        print("An Exception occured in reflenish_cache_texts")
+        print(e)
+    else:
+        if self_trasaction == True:
+            s.commit()
+    finally:
+        if self_trasaction == True:
+            s.close()
 
         
 # <문장 생성>
@@ -350,12 +359,14 @@ def add_train_reservation(dbconn, event_id, self_transaction):
             train_data_id = train_data_id[0]
             tb_train_reservation.register(event_id, train_data_id)
     except Exception as e:
+        if self_transaction == True:
+            s.flush()
+            s.rollback()
         print("An Exception occured in add_train_reservation")
         print(e)
-        s.flush()
-        s.rollback()
     else:
-        s.commit()
+        if self_transaction == True:
+            s.commit()
     finally:
         if self_transaction == True:
             s.close()

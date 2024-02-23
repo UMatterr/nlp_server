@@ -99,10 +99,10 @@ class Events(Resource):
             tb_events = events.Events(g_dbconn)
             event_list = tb_events.get_list()
         except Exception as e:
-            print("An excetion occured on GET /events")
-            print(e)
             s.flush()
             s.rollback()
+            print("An excetion occured on GET /events")
+            print(e)
         else:
             s.commit()
         finally:
@@ -142,10 +142,10 @@ class Phrase(Resource):
         try:
             messages += (utils.get_five_messages(g_dbconn, event_id, use_cache, how))
         except Exception as e:
-            print("An excetion occured on GET /phrase")
-            print(e)
             s.flush()
             s.rollback()
+            print("An excetion occured on GET /phrase")
+            print(e)
         else:
             s.commit()
         finally:
@@ -174,10 +174,10 @@ class Phrase(Resource):
             #tb_input_texts = input_texts.InputTexts(g_dbconn)
             #tb_input_texts.add(event_id, content)
         except Exception as e:
-            print("An excetion occured on POST /phrase")
-            print(e)
             s.flush()
             s.rollback()
+            print("An excetion occured on POST /phrase")
+            print(e)
         else:
             s.commit()
             ret = "ok"
@@ -222,10 +222,10 @@ if __name__ == "__main__":
     try:
         utils.initialize_cache_texts(g_dbconn)
     except Exception as e:
-        print("An excetion occured on initialize_cache_texts")
-        print(e)
         s.flush()
         s.rollback()
+        print("An excetion occured on initialize_cache_texts")
+        print(e)
     else:
         s.commit()
     finally:
