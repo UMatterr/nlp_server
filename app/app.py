@@ -122,7 +122,7 @@ class Phrase(Resource):
 
         Examples 1: GET /phrase/2?use_cache=0&how=informal     <- 새해(2), 새로 생성한 메시지(use_cache=0), 반말(how=informal)
 
-        Returns: {'phrase':'generated sentence for a event'}
+        Returns: {'phrase':['문장1', '문장2', '문장3'}
         """
         use_cache = parser.parse_args()['use_cache']
         if use_cache == None:
