@@ -7,6 +7,7 @@ import torch
 import argparse
 import utils
 import time
+import sys
 
 from utils import g_q
 from utils import g_w
@@ -15,6 +16,8 @@ from generator import chuseok
 from database import db
 from database import events
 from database import input_texts
+
+from logs import init_logger, logger_main
 
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.jobstores.base import JobLookupError
@@ -101,8 +104,7 @@ class Events(Resource):
         except Exception as e:
             s.flush()
             s.rollback()
-            print("An excetion occured on GET /events")
-            print(e)
+            logger_main().error(f"An exception occured while GET /events: {e}")
         else:
             s.commit()
         finally:
@@ -144,8 +146,7 @@ class Phrase(Resource):
         except Exception as e:
             s.flush()
             s.rollback()
-            print("An excetion occured on GET /phrase")
-            print(e)
+            logger_main().error(f"An exception occured while GET /phrase: {e}")
         else:
             s.commit()
         finally:
@@ -176,8 +177,7 @@ class Phrase(Resource):
         except Exception as e:
             s.flush()
             s.rollback()
-            print("An excetion occured on POST /phrase")
-            print(e)
+            logger_main().error(f"An excetion occured while POST /phrase: {e}")
         else:
             s.commit()
             ret = "ok"
@@ -200,16 +200,27 @@ class Converted(Resource):
         """
         content = request.json.get('content')
 
-        return { "converted": get_converted(content, how, False)}
+        ret = "[]"
+        try:
+            ret = get_converted(content, how, False)
+        except Exception as e:
+            logger_main().error(f"An Exception occured while POST /converted: {e}")
+
+        return { "converted": ret}
 
         
 if __name__ == "__main__":
+
+    init_logger()
 
     # DB 연결
     if g_dbconn == None:
         g_dbconn = db.DB()
     assert(g_dbconn != None)
     s = g_dbconn.session()
+    if s == None:
+        logger_main().fatal("Failed to connect to DB -> Exit")
+        sys.exit(-1)
 
     # 스케쥴러 
     if g_sched == None:
@@ -224,8 +235,7 @@ if __name__ == "__main__":
     except Exception as e:
         s.flush()
         s.rollback()
-        print("An excetion occured on initialize_cache_texts")
-        print(e)
+        logger_main().error(f"An excetion occured while initialize_cache_texts:{e}")
     else:
         s.commit()
     finally:

@@ -2,6 +2,7 @@ import torch
 from tqdm import tqdm
 import queue
 import threading
+from logs import logger_main, logger_sched
 
 g_q = None
 g_w = None
@@ -264,9 +265,12 @@ def _ReservationWorker():
 
     while True:
         if g_q == None:
+            logger_sched().fatal("required queue is not prepared in worker thread")
             break
         p_add_train_reservation, args = g_q.get()
+        logger_sched().debug("before call add_train_reservation in worker thread")
         p_add_train_reservation(*args)
+        logger_sched().debug("after call add_train_reservation in worker thread")
 
 # <문장 수집>
 # 특정 이벤트에 해당하는 사용자 입력을 재학습을 위해 input_texts 에 축적한다.
@@ -282,9 +286,11 @@ def add_user_inputs(dbconn, event_id, input_text):
 
     if g_q == None:
         g_q = queue.Queue()
+        logger_sched().debug("A queue for worker threaded created")
     if g_w == None:
         g_w = threading.Thread(target=_ReservationWorker)
         g_w.start()
+        logger_sched().debug("worker thread started")
 
     tb_config = config.Config(dbconn)
     min_retrain_num = int(tb_config.get_config("min_retrain_num"))
@@ -300,6 +306,8 @@ def add_user_inputs(dbconn, event_id, input_text):
 
     if have_enough_inputs == True:
         g_q.put( (add_train_reservation, [dbconn, event_id, True]))
+        logger_sched().debug(f"Added add_train_reservation to Queue: {event_id}")
+        
 
 
 
