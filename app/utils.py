@@ -206,12 +206,11 @@ def reflenish_cache_texts(dbconn, event_id, first=False, self_trasaction=False):
                 # cache_texts 테이블이 생성한 문장을 저장한다.
                 if len(sentences) > 0:
                     tb_cache_texts.replenish(event_id, sentences)
-    except:
+    except Exception as e:
         if self_trasaction == True:
             s.flush()
             s.rollback()
-        print("An Exception occured in reflenish_cache_texts")
-        print(e)
+        logger_main().error(f"An exception occured in reflenish_cache_texts: {e}")
     else:
         if self_trasaction == True:
             s.commit()
@@ -394,50 +393,63 @@ def add_train_reservation(dbconn, event_id, self_transaction):
 ### model_id로 models를 조회하여 path를 가져온다.
 ### training 된 model을 huggingface 에 push 한다.
 ### train_reservation.status 를 C 또는 E로 바꾼다.
-def retrain(dbconn):
+def retrain(dbconn, self_transaction):
 
     assert(dbconn != None)
+    if self_transaction == True:
+        s = dbconn.session()
 
-    # 모델준비
-    ### train_reservation 에 등록된 항목중 enable=True, status=N, start_time >= now()인 항목의 train_reservation.event_model_id로 event_model을 조회하여 model_id를 가져온다.
-    ### model_id 로 models 를 조회하여 base 모델을 준비한다.
-    ##### df[['train_data_id', 'path', 'base', 'token_path', 'token_base', 'train_prefix']].values
-    tb_train_reservation = train_reservation.TrainReservation(dbconn)
-    train_models = tb_train_reservation.get_training_model()
+    try:
+        # 모델준비
+        ### train_reservation 에 등록된 항목중 enable=True, status=N, start_time >= now()인 항목의 train_reservation.event_model_id로 event_model을 조회하여 model_id를 가져온다.
+        ### model_id 로 models 를 조회하여 base 모델을 준비한다.
+        ##### df[['train_data_id', 'path', 'base', 'token_path', 'token_base', 'train_prefix']].values
+        tb_train_reservation = train_reservation.TrainReservation(dbconn)
+        train_models = tb_train_reservation.get_training_model()
 
-    tb_train_data = train_data.TrainData(dbconn)
+        tb_train_data = train_data.TrainData(dbconn)
 
-    for models in train_models:
-        # TODO: transaction 처리 고려
-        # 데이터준비
-        ### train_reservation.train_data_id 로 데이터를 가져온다.
-        train_data_id = model[0]
-        path = model[1]
-        base = model[2]
-        token_path = model[3]
-        token_base = model[4]
-        train_prefix = model[5]
-        status = 'S'
+        for models in train_models:
+            # TODO: transaction 처리 고려
+            # 데이터준비
+            ### train_reservation.train_data_id 로 데이터를 가져온다.
+            train_data_id = models[0]
+            path = models[1]
+            base = models[2]
+            token_path = models[3]
+            token_base = models[4]
+            train_prefix = models[5]
+            status = 'S'
 
-        data = tb_train_data.get_train_data(train_data_id)
+            data = tb_train_data.get_train_data(train_data_id)
 
-        # 재학습
-        ### training 을 진행한다.
-        trainer = CommonTrainer(base, token_base, train_prefix)
+            # 재학습
+            ### training 을 진행한다.
+            trainer = CommonTrainer(base, token_base, train_prefix)
+
+            tb_train_reservation.update_train_status(train_data_id, status)
+
+            # TODO: 버전을 올린 T model을 models에 추가해야 할까??
+
+            if trainer.train(data) == True:
+                # 재학습 완료후 모델 저장
+                ### model_id로 models를 조회하여 path를 가져온다. (get_train_data 에서 이미 가져옴)
+                ### training 된 model을 huggingface 에 push 한다.
+                ### train_reservation.status 를 C 또는 E로 바꾼다.
+                trainer.push(path, token_path)
+                status = 'C'
+            else:
+                status = 'E'
 
         tb_train_reservation.update_train_status(train_data_id, status)
-
-        # TODO: 버전을 올린 T model을 models에 추가해야 할까??
-
-        if trainer.train(data) == True:
-            # 재학습 완료후 모델 저장
-            ### model_id로 models를 조회하여 path를 가져온다. (get_train_data 에서 이미 가져옴)
-            ### training 된 model을 huggingface 에 push 한다.
-            ### train_reservation.status 를 C 또는 E로 바꾼다.
-            trainer.push(path, token_path)
-            status = 'C'
-        else:
-            status = 'E'
-
-        tb_train_reservation.update_train_status(train_data_id, status)
-
+    except Exception as e:
+        if self_transaction == True:
+            s.flush()
+            s.rollback()
+        logger_sched().error(f"An exception occured while retrain: {e}")
+    else:
+        if self_transaction == True:
+            s.commit()
+    finally:
+        if self_transaction == True:
+            s.close()
