@@ -6,6 +6,8 @@ import pandas as pd
 from torch.utils.data import Dataset, DataLoader
 from io import StringIO
 
+from logs import logger_main, logger_sched
+
 class GPTDataset(Dataset):
     def __init__(self, tokenizer, file_paths, buffer_list):
         concats = []
@@ -75,12 +77,12 @@ class CommonTrainer():
             optimizer, num_warmup_steps = 200, num_training_steps = -1 # TODO: 설정 가능하도록
         )
 
-        # DEBUG: 
-        epochs = 1 #4 # TODO: 설정 가능하도록
+        # DEBUG
+        epochs = 4 # TODO: 설정 가능하도록
         min_loss = int(100)
 
         for epoch in range(epochs):
-            print(f"Training epoch {epoch}")
+            logger_sched().debug(f"Training epoch {epoch}")
             for input_text in tqdm(train_dataloader):
                 input_tensor = input_text.to(self.device)
                 outputs = self.model(input_tensor, labels=input_tensor)
@@ -92,11 +94,11 @@ class CommonTrainer():
                 optimizer.step()
                 scheduler.step()
 
-            print(f"epoch {epoch} loss {outputs[0].item():0.2f}")
+            logger_sched().debug(f"epoch {epoch} loss {outputs[0].item():0.2f}")
 
             # Save best model
             if outputs[0].item() < min_loss:
-                print(f"save min loss model: {outputs[0].item()}")
+                logger_sched().debug(f"save min loss model: {outputs[0].item()}")
                 self.best_model = self.model
                 self.best_model.save_pretrained("./best_model")
                 trained = True

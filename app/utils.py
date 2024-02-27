@@ -2,6 +2,7 @@ import torch
 from tqdm import tqdm
 import queue
 import threading
+from datetime import datetime
 from logs import logger_main, logger_sched
 
 g_q = None
@@ -77,6 +78,7 @@ def generate(input_text, tokenizer, model, num, args):
 def strings2trainable(train_prefix, string_list):
     #문자열 배열을 tagging된 훈련 데이터로 변환한다.
     train_data_list = []
+    train_data_list.append("target|text\n")
     for s in string_list:
         if s.endswith('\n') == False:
             s += '\n'
@@ -369,8 +371,7 @@ def add_train_reservation(dbconn, event_id, self_transaction):
         if self_transaction == True:
             s.flush()
             s.rollback()
-        print("An Exception occured in add_train_reservation")
-        print(e)
+        logger_sched().error(f"An Exception occured in add_train_reservation: {e}")
     else:
         if self_transaction == True:
             s.commit()
@@ -396,31 +397,60 @@ def add_train_reservation(dbconn, event_id, self_transaction):
 def retrain(dbconn, self_transaction):
 
     assert(dbconn != None)
+    s = None
     if self_transaction == True:
         s = dbconn.session()
 
-    try:
-        # 모델준비
-        ### train_reservation 에 등록된 항목중 enable=True, status=N, start_time >= now()인 항목의 train_reservation.event_model_id로 event_model을 조회하여 model_id를 가져온다.
-        ### model_id 로 models 를 조회하여 base 모델을 준비한다.
-        ##### df[['train_data_id', 'path', 'base', 'token_path', 'token_base', 'train_prefix']].values
+    # 모델준비
+    ### train_reservation 에 등록된 항목중 enable=True, status=N, start_time >= now()인 항목의 train_reservation.event_model_id로 event_model을 조회하여 model_id를 가져온다.
+    ### model_id 로 models 를 조회하여 base 모델을 준비한다.
+    ##### df[['train_data_id', 'path', 'base', 'token_path', 'token_base', 'train_prefix']].values
+    try: 
         tb_train_reservation = train_reservation.TrainReservation(dbconn)
         train_models = tb_train_reservation.get_training_model()
 
         tb_train_data = train_data.TrainData(dbconn)
+        tb_models = models.Models(dbconn)
+    except Exception as e:
+        if self_transaction == True:
+            s.flush()
+            s.rollback()
+        logger_sched().error(f"An exception occured while retrain 1: {e}")
+    else:
+        if self_transaction == True:
+            s.commit()
 
-        for models in train_models:
-            # TODO: transaction 처리 고려
-            # 데이터준비
-            ### train_reservation.train_data_id 로 데이터를 가져온다.
-            train_data_id = models[0]
-            path = models[1]
-            base = models[2]
-            token_path = models[3]
-            token_base = models[4]
-            train_prefix = models[5]
-            status = 'S'
+    
 
+    for model in train_models:
+
+        if self_transaction == True:
+            s.begin()
+
+        # 데이터준비
+        ### train_reservation.train_data_id 로 데이터를 가져온다.
+        train_data_id = model[0]
+        name = model[1]
+        path = model[2]
+        base = model[3]
+        version = model[4]
+        desc = model[5]
+        token_path = model[6]
+        token_base = model[7]
+        train_prefix = model[8]
+        min_length = model[9]
+        max_length = model[10]
+        top_p = model[11]
+        top_k = model[12]
+        repetition_penalty = model[13]
+        no_repeat_ngram_size = model[14]
+        temperature = model[15]
+        use_cache = model[16]
+        do_sample = model[17]
+        eos_token = model[18]
+        status = 'S'
+
+        try:
             data = tb_train_data.get_train_data(train_data_id)
 
             # 재학습
@@ -428,28 +458,97 @@ def retrain(dbconn, self_transaction):
             trainer = CommonTrainer(base, token_base, train_prefix)
 
             tb_train_reservation.update_train_status(train_data_id, status)
+        except Exception as e:
+            if self_transaction == True:
+                s.flush()
+                s.rollback()
+            logger_sched().error(f"An exception occured while retrain 2: {e}")
+        else:
+            if self_transaction == True:
+                s.commit()
 
-            # TODO: 버전을 올린 T model을 models에 추가해야 할까??
+        if trainer.train(data) == True:
+            # 재학습 완료후 모델 저장
+            ### model_id로 models를 조회하여 path를 가져온다. (get_train_data 에서 이미 가져옴)
+            ### training 된 model을 huggingface 에 push 한다.
+            ### train_reservation.status 를 C 또는 E로 바꾼다.
+            trainer.push(path, token_path)
+            status = 'C'
+        else:
+            status = 'E'
 
-            if trainer.train(data) == True:
-                # 재학습 완료후 모델 저장
-                ### model_id로 models를 조회하여 path를 가져온다. (get_train_data 에서 이미 가져옴)
-                ### training 된 model을 huggingface 에 push 한다.
-                ### train_reservation.status 를 C 또는 E로 바꾼다.
-                trainer.push(path, token_path)
-                status = 'C'
-            else:
-                status = 'E'
-
-        tb_train_reservation.update_train_status(train_data_id, status)
-    except Exception as e:
         if self_transaction == True:
-            s.flush()
-            s.rollback()
-        logger_sched().error(f"An exception occured while retrain: {e}")
-    else:
-        if self_transaction == True:
+            s.begin()
+
+        try:
+            tb_train_reservation.update_train_status(train_data_id, status)
+        except Exception as e:
+            if self_transaction == True:
+                s.flush()
+                s.rollback()
+            logger_sched().error(f"An exception occured while retrain 3: {e}")
+        else:
             s.commit()
-    finally:
+
+        ins_time = datetime.now().strftime('_%Y%m%d_%H%M%S')
+
+        tr_version = str(int(version)+1)
+        tr_name = "auto_train_" + name + ins_time
+        tr_type = 'T'
+        tr_path = path + "_" + tr_version
+        tr_base = path 
+        tr_desc = "자동 등록된 훈련용 모델" + ins_time
+        tr_token_path = token_path + "_" + tr_version
+        tr_token_base = token_path 
+        tr_train_prefix = train_prefix
+        tr_min_length = min_length
+        tr_max_length = max_length
+        tr_top_p = top_p
+        tr_top_k = top_k
+        tr_repetition_penalty = repetition_penalty
+        tr_no_repeat_ngram_size = no_repeat_ngram_size
+        tr_temperature = temperature
+        tr_use_cache = use_cache
+        tr_do_sample = do_sample
+        tr_eos_token = eos_token
+
+        sv_version = str(int(version)+1)
+        sv_name = "auto_service_" + name + ins_time
+        sv_type = 'S'
+        sv_path = path
+        sv_base = base 
+        sv_desc = "자동 등록된 서비스용 모델" + ins_time
+        sv_token_path = token_path
+        sv_token_base = token_base 
+        sv_train_prefix = train_prefix
+        sv_min_length = min_length
+        sv_max_length = max_length
+        sv_top_p = top_p
+        sv_top_k = top_k
+        sv_repetition_penalty = repetition_penalty
+        sv_no_repeat_ngram_size = no_repeat_ngram_size
+        sv_temperature = temperature
+        sv_use_cache = use_cache
+        sv_do_sample = do_sample
+        sv_eos_token = eos_token
+
         if self_transaction == True:
-            s.close()
+            s.begin()
+
+        try:
+            tb_models.add_model(tr_name, tr_type, tr_path, tr_base, tr_version, tr_desc, tr_token_path, tr_token_base, tr_train_prefix, \
+                tr_min_length, tr_max_length, tr_top_p, tr_top_k, tr_repetition_penalty, tr_no_repeat_ngram_size, tr_temperature, tr_use_cache, tr_do_sample, tr_eos_token)
+
+            tb_models.add_model(sv_name, sv_type, sv_path, sv_base, sv_version, sv_desc, sv_token_path, sv_token_base, sv_train_prefix, \
+                sv_min_length, sv_max_length, sv_top_p, sv_top_k, sv_repetition_penalty, sv_no_repeat_ngram_size, sv_temperature, sv_use_cache, sv_do_sample, sv_eos_token)
+        except Exception as e:
+            if self_transaction == True:
+                s.flush()
+                s.rollback()
+            logger_sched().error(f"An exception occured while retrain 4: {e}")
+        else:
+            if self_transaction == True:
+                s.commit()
+        finally:
+            if self_transaction == True:
+                s.close()

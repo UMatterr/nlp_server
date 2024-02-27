@@ -228,6 +228,8 @@ if __name__ == "__main__":
         g_sched.start()
         # 03시에 (pre_generate_num/10) 만큼 문장 생성하여 DB에 추가
         g_sched.add_job(utils.reflenish_cache_texts, 'cron', hour='5', minute='00', id='reflenish', args=[g_dbconn, -1, False, True])
+        # DEBUG
+        #g_sched.add_job(utils.retrain, 'cron', hour='19', minute='25', id='retrain', args=[g_dbconn, True])
         g_sched.add_job(utils.retrain, 'cron', hour='0', minute='00', id='retrain', args=[g_dbconn, True])
 
     try:

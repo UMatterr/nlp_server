@@ -1,5 +1,12 @@
 from database import db
 
+def check_null(value):
+    if value == None:
+        value = "NULL"
+    else:
+        value = f"'{value}'"
+    return value
+
 class Models():
     """models 테이블을 다루기 위한 클래스
     """
@@ -17,6 +24,25 @@ class Models():
             return l[0], l[1], l[2], l[3], l[4], l[5:]
         else:
             return '','','','','', [None, None, None, None, None, None, None, None, None, None]
+
+    def add_model(self, name, type, path, base, version, desc, token_path, token_base, train_prefix, \
+        min_length, max_length, top_p, top_k, repetition_penalty, no_repeat_ngram_size, temperature, use_cache, do_sample, eos_token):
+
+        min_length = check_null(min_length)
+        max_length = check_null(max_length)
+        top_p = check_null(top_p)
+        top_k = check_null(top_k)
+        repetition_penalty = check_null(repetition_penalty)
+        no_repeat_ngram_size = check_null(no_repeat_ngram_size)
+        temperature = check_null(temperature)
+        use_cache = check_null(use_cache)
+        do_sample = check_null(do_sample)
+        eos_token = check_null(eos_token)
+
+        sql = f"insert into models (name, type, path, base, version, \"desc\", token_path, token_base, train_prefix, min_length, max_length, top_p, top_k, repetition_penalty, no_repeat_ngram_size, temperature, use_cache, do_sample, eos_token) values \
+            ('{name}', '{type}', '{path}', '{base}', '{version}', '{desc}', '{token_path}', '{token_base}', '{train_prefix}', {min_length}, {max_length}, {top_p}, {top_k}, {repetition_penalty}, {no_repeat_ngram_size}, {temperature}, {use_cache}, {do_sample}, {eos_token})"
+        self.db.execute(sql)
+
 
     def is_valid(self, df):
         if not isinstance(df, type(None)) and (len(df) > 0):

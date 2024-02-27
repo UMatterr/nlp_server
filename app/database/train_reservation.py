@@ -42,12 +42,15 @@ class TrainReservation():
         ### train_reservation 에 등록된 항목중 enable=True, status=N, start_time >= now()인 항목의 train_reservation.event_model_id로 event_model을 조회하여 model_id를 가져온다.
         ### model_id 로 models 를 조회하여 base 모델을 준비한다.
         now = pd.Timestamp.now()
+        # DEBUG
         sql = f"select TR.train_data_id, M.path, M.base, M.token_path, M.token_base, M.train_prefix from train_reservation TR inner join event_model EM on (EM.id = TR.event_model_id) inner join models M on (M.id = EM.model_id and M.type='T') \
             where TR.enable=true and TR.status='N', TR.start_time < {now}"
+        #sql = f"select TR.train_data_id, M.name, M.path, M.base, M.version, M.desc, M.token_path, M.token_base, M.train_prefix, M.min_length, M.max_length, M.top_p, M.top_k, M.repetition_penalty, M.no_repeat_ngram_size, M.temperature, M.use_cache, M.do_sample, M.eos_token from train_reservation TR inner join event_model EM on (EM.id = TR.event_model_id) inner join models M on (M.id = EM.model_id and M.type='T') \
+        #    where TR.enable=true and TR.status='N'"
 
         df = self.db.select(sql)
         if self.is_valid(df):
-            return df[['train_data_id', 'path', 'base', 'token_path', 'token_base', 'train_prefix']].values
+            return df[['train_data_id', 'name', 'path', 'base', 'version', 'desc', 'token_path', 'token_base', 'train_prefix', 'min_length', 'max_length', 'top_p', 'top_k', 'repetition_penalty', 'no_repeat_ngram_size', 'temperature', 'use_cache', 'do_sample', 'eos_token']].values
         else:
             return []
 
