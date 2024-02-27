@@ -40,7 +40,7 @@ class TrainData():
         Returns:
             string: 훈련데이터
         """
-        sel = select(self.train_data).where(self.train_data.c_id==id)
+        sel = select(self.train_data).where(self.train_data.c.id==id)
         for r in self.db.execute(sel):
             return r.data.decode('utf-8')
         else:
