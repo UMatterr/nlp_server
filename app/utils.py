@@ -2,6 +2,7 @@ import torch
 from tqdm import tqdm
 import queue
 import threading
+import utils
 import pandas as pd
 from datetime import datetime
 from logs import logger_main, logger_sched
@@ -248,13 +249,15 @@ def reflenish_cache_texts(dbconn, event_id, first=False, self_trasaction=False):
                 g_service_generator[event_id] = generator
 
             # 각 모델별로 문장을 생성한다.
-            # TODO: 맞춤범, 중복확인
+            # TODO: 중복확인
             # 하나도 없을땐 최소 5개 생성한다.
             if generate_nums <= 0:
                 generate_nums = 5
 
             if generate_nums > 0:
                 sentences = generator.generateN(generate_nums, args)
+                # 맞춤법 수정
+                sentences = utils.correct(sentences)
                 # cache_texts 테이블이 생성한 문장을 저장한다.
                 if len(sentences) > 0:
                     tb_cache_texts.replenish(event_id, sentences)
@@ -299,7 +302,6 @@ def get_five_messages(dbconn, event_id, use_cache, how_to_convert):
         dbconn.session().begin()
 
     # cache에서 5개 추출
-    # TODO: 맞춤법은 생성할때 맞춘다.
     sentences = tb_cache_texts.get_random5(event_id)
     converted = None
     if how_to_convert == 'formal':
@@ -431,7 +433,6 @@ def add_train_reservation(dbconn, event_id, self_transaction):
 
 
 # <재학습 기능>
-# TODO: cron: min_retrain_start_hour 부터 max_retrain_end_hour 까지 1시간 간격으로 확인
 # 모델준비
 ### train_reservation 에 등록된 항목중 enable=True, status=N, start_time >= now()인 항목의 train_reservation.event_model_id로 event_model을 조회하여 model_id를 가져온다.
 ### model_id 로 models 를 조회하여 base 모델을 준비한다.

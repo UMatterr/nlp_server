@@ -206,7 +206,7 @@ class Converted(Resource):
 
         ret = "[]"
         try:
-            ret = get_converted(content, how, False)
+            ret = get_converted(content, how, True)
         except Exception as e:
             logger_main().error(f"An Exception occured while POST /converted: {e}")
 
