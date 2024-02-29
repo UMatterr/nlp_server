@@ -216,6 +216,18 @@ class Converted(Resource):
 class BleuScore(Resource):
 
     def get(self, event_id):
+        """각 event_id 에 해당하는 문장들을 cache_texts로부터 sampling 하고 훈련데이터 대비 bleu score를 구하여 html 페이지로 보여준다.
+
+        Examples 1: GET /bleuscore/<event_id>?samples=10
+        Examples 2: GET /bleuscore/<event_id> <- samples = 1
+
+        Args:
+            event_id (int): 이벤트 id
+            samples (int): score 계산을 위해 기존 생성한 문장중 샘플링할 갯수
+
+        Returns:
+            string: html to show (min, mean, max, predcnt, traincnt)
+        """
 
         samples = parser.parse_args()['samples']
         if samples == None:
@@ -243,7 +255,18 @@ class BleuScore(Resource):
 
 
     def post(self, event_id):
+        """각 event_id 에 해당하는 문장들을 cache_texts로부터 sampling 하고 훈련데이터 대비 bleu score를 구한다.
 
+        Examples 1: POST /bleuscore/<event_id>?samples=10
+        Examples 2: POST /bleuscore/<event_id> <- samples = 1
+
+        Args:
+            event_id (int): 이벤트 id
+            samples (int): score 계산을 위해 기존 생성한 문장중 샘플링할 갯수
+
+        Returns:
+            string: '{"event_name":event_name, "min": min, "mean":mean, "max":max, "predcnt":predcnt, "traincnt":traincnt}'
+        """
         samples = parser.parse_args()['samples']
         if samples == None:
             samples = 1
@@ -270,8 +293,17 @@ class BleuScore(Resource):
         
 @api.route('/traindata/<string:event_id>')
 class TrainData(Resource):
-
     def post(self, event_id):
+        """각 event_id 에 해당하는 모델을 훈련시킬 때 사용한 data를 db에 저장한다.
+        Examples 1: POST /traindata/<event_id>
+                    BODY: { "data": "target|text\n프롬프트|훈련할 문장\n" }
+
+        Args:
+            event_id (int): 이벤트 ID
+
+        Returns:
+            string: "{"result":<"ok"|"error">}"
+        """
 
         ret = "error"
 
