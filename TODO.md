@@ -9,3 +9,5 @@
 - 시연영상 찍기 전에~ 네이버 맞춤법 constants 에 CALLBACK, PASSPORT_KEY 정상인지 여부 확인
 
 - nginx, uwsgi 연동 (가능하면)
+
+- emoji prediction (가능하면)

@@ -81,10 +81,3 @@ $ docker kill 5af56732dec4
 Push to the DockerHub
 $ docker image tag nlp_server-web quickerj/umatter
 $ docker push quickerj/umatter
-
-When an error occured 
-```
-git clone https://github.com/ssut/py-hanspell
-cd py-hanspell
-python setup.py install
-```
