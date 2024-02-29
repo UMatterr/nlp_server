@@ -2,8 +2,11 @@ import torch
 from tqdm import tqdm
 import queue
 import threading
+import pandas as pd
 from datetime import datetime
 from logs import logger_main, logger_sched
+from bleu_score import sentence_bleu
+from io import StringIO
 
 g_q = None
 g_w = None
@@ -136,6 +139,53 @@ def toinformal(src_list):
     for src in src_list:
         converted_list.append(g_informal_converter.convert(src))
     return converted_list
+
+def datas2strs(datas):
+    concats = []
+    if datas != None:
+        for data in datas:
+            df = pd.read_csv(StringIO(data), sep='|')
+            concats += [
+                #label + "|" + text for label, text in zip(df["target"], df["text"])
+                text for text in df["text"]
+            ]
+    return concats
+
+# <이벤트(모델)별 BLEU 성능 평가>
+def calculate_bleu_score(dbconn, event_id, samples):
+
+    assert(dbconn != None)
+
+    min_score = 1.0
+    max_score = 0
+    mean_score = 0.5
+    trained_cnt = 0
+
+    # event_id 에 해당하는 학습 데이터를 train_data 에서 list로 추출한다.
+    tb_train_data = train_data.TrainData(dbconn)
+    datas = tb_train_data.get_train_data_by_eventid(event_id)
+    train_strings = datas2strs(datas)
+    trained_cnt = len(train_strings)
+
+    # event_id 에 해당하는 문장을 cache_texts 에서 최대 100개 sampling 한다. (order by id desc)
+    tb_cache_texts = cache_texts.CacheTexts(dbconn)
+    predicts = tb_cache_texts.get_recent_samples(event_id, samples)
+
+    # 각 cache_text 별로 bleu_score를 계산한다.
+    total_score = 0
+    for pred in predicts:
+        # 한글은 어순이 달라도 동일한 의미인경우가 많아 ngram 은 1로만 적용한다.
+        score = sentence_bleu(train_strings, pred, weights=(0.25, 0.25, 0.25, 0.25))
+        if score < min_score:
+            min_score = score
+        elif score > max_score:
+            max_score = score
+        total_score += score
+
+    mean_score = total_score / len(predicts)
+    
+    # bleu_score 최소, 평균, 최대를 반환한다.
+    return min_score, mean_score, max_score, len(predicts), trained_cnt
 
 # <초기 cache 준비>
 def initialize_cache_texts(dbconn):
@@ -354,7 +404,7 @@ def add_train_reservation(dbconn, event_id, self_transaction):
         data = strings2trainable(train_prefix, texts)
 
         tb_train_data = train_data.TrainData(dbconn)
-        train_data_id = tb_train_data.add_train_data(data)
+        train_data_id = tb_train_data.add_train_data(event_id, data)
 
         tb_input_texts.disable_input_texts(input_ids)
 

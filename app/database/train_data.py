@@ -16,9 +16,10 @@ class TrainData():
             Column('id', Integer, primary_key=True),
             Column('data', BINARY),
             Column('last_modified', TIMESTAMP),
+            Column('event_id', Integer),
         )
 
-    def add_train_data(self, utf8_text):
+    def add_train_data(self, event_id, utf8_text):
         """훈련 데이터를 저장하고 train_reservation 테이블에 저장할 primary key를 반환한다. (1:1)
 
         Args:
@@ -27,7 +28,7 @@ class TrainData():
         Returns:
             int4: primary key
         """
-        ins = self.train_data.insert().values(data=utf8_text)
+        ins = self.train_data.insert().values(event_id=event_id, data=utf8_text)
         r = self.db.execute(ins)
         return r.inserted_primary_key
 
@@ -45,6 +46,22 @@ class TrainData():
             return r.data.decode('utf-8')
         else:
             return ''
+
+    def get_train_data_by_eventid(self, event_id):
+        """특정 id에 해당하는 훈련데이터를 문자열로 반환한다.
+
+        Args:
+            id (int4): primary key
+
+        Returns:
+            string: 훈련데이터
+        """
+        sel = select(self.train_data).where(self.train_data.c.event_id==event_id)
+        results = []
+        for r in self.db.execute(sel):
+            results.append(r.data.decode('utf-8'))
+        return results
+
 
     def is_valid(self, df):
         if not isinstance(df, type(None)) and (len(df) > 0):

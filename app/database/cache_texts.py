@@ -43,6 +43,15 @@ class CacheTexts():
         else:
             return []
 
+    def get_recent_samples(self, event_id, sample_cnt):
+        # 특정 event에 해당하는 :5개의 문장을 랜덤하게 추출하여 list 형태로 반환한다.
+        df = self.db.select(f"select * from cache_texts where event_id={event_id} order by id desc limit {sample_cnt}")
+        if self.is_valid(df):
+            return df['cache_text'].to_list()
+        else:
+            return []
+
+
     def is_valid(self, df):
         if not isinstance(df, type(None)) and (len(df) > 0):
             return True

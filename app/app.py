@@ -1,4 +1,5 @@
 from flask import Flask, abort, request
+from flask import render_template, make_response
 from flask_restx import Api, Resource, reqparse
 from transformers import GPT2LMHeadModel, AutoTokenizer
 from os import path
@@ -16,6 +17,7 @@ from generator import chuseok
 from database import db
 from database import events
 from database import input_texts
+from database import train_data
 
 from logs import init_logger, logger_main
 
@@ -83,6 +85,8 @@ parser.add_argument("user_id", type=str)
 parser.add_argument("friend_id", type=str)
 parser.add_argument("src", type=str)
 """
+# /bleuscore/<event_id>?samples=<number larger than 0>
+parser.add_argument("samples", type=int)
 
 @api.route('/events/<string:status>')
 class Events(Resource):
@@ -207,6 +211,92 @@ class Converted(Resource):
             logger_main().error(f"An Exception occured while POST /converted: {e}")
 
         return { "converted": ret}
+
+@api.route('/bleuscore/<string:event_id>')
+class BleuScore(Resource):
+
+    def get(self, event_id):
+
+        samples = parser.parse_args()['samples']
+        if samples == None:
+            samples = 1
+
+        event_id = int(event_id)
+
+        assert(g_dbconn)
+        s = g_dbconn.session()
+
+        try:
+            event_name = events.Events(g_dbconn).id2name(event_id)
+            min, mean, max, predcnt, traincnt = utils.calculate_bleu_score(g_dbconn, event_id, samples)
+        except Exception as e:
+            s.flush()
+            s.rollback()
+            logger_main().error(f"An excetion occured while GET /bleuscore: {e}")
+        else:
+            s.commit()
+        finally:
+            s.close()
+
+        headers = {'Content-Type':'text/html'}
+        return make_response(render_template('bleuscore.html', event_name = event_name, min = min, mean = mean, max = max, predcnt = predcnt, traincnt = traincnt), 200, headers)
+
+
+    def post(self, event_id):
+
+        samples = parser.parse_args()['samples']
+        if samples == None:
+            samples = 1
+
+        event_id = int(event_id)
+
+        assert(g_dbconn)
+        s = g_dbconn.session()
+
+        try:
+            event_name = events.Events(g_dbconn).id2name(event_id)
+            min, mean, max, predcnt, traincnt = utils.calculate_bleu_score(g_dbconn, event_id, samples)
+        except Exception as e:
+            s.flush()
+            s.rollback()
+            logger_main().error(f"An excetion occured while POST /bleuscore: {e}")
+        else:
+            s.commit()
+        finally:
+            s.close()
+
+        return {"event_name":event_name, "min": min, "mean":mean, "max":max, "predcnt":predcnt, "traincnt":traincnt}
+
+        
+@api.route('/traindata/<string:event_id>')
+class TrainData(Resource):
+
+    def post(self, event_id):
+
+        ret = "error"
+
+        event_id = int(event_id)
+        data = request.json.get('data')
+        data = data.encode('utf-8')
+
+        assert(g_dbconn)
+        s = g_dbconn.session()
+        
+        try:
+            tb_train_data = train_data.TrainData(g_dbconn)
+            tb_train_data.add_train_data(event_id, data)
+        except Exception as e:
+            s.flush()
+            s.rollback()
+            logger_main().error(f"An excetion occured while POST /traindata: {e}")
+        else:
+            s.commit()
+            ret = "ok"
+        finally:
+            s.close()
+            
+        return {'result':ret}
+
 
         
 if __name__ == "__main__":
