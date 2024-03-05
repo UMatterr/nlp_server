@@ -104,11 +104,13 @@ from database import cache_texts
 from database import input_texts
 from database import train_data
 from database import train_reservation
+from classifier import hatespeech
 
 g_service_generator = {}
 g_typos_corrector = None
 g_formal_converter = None
 g_informal_converter = None
+g_bad_words = None
 
 def correct(src_list):
     #문자열 list를 입력받아 맞춤법이 교정된 목록을 생성하여 반환한다.
@@ -140,6 +142,12 @@ def toinformal(src_list):
     for src in src_list:
         converted_list.append(g_informal_converter.convert(src))
     return converted_list
+
+def is_badwords(text):
+    global g_bad_words
+    if g_bad_words == None:
+        g_bad_words = hatespeech.HatespeechClassifier()
+    return g_bad_words.is_hate(text)
 
 def datas2strs(datas):
     concats = []
@@ -378,8 +386,6 @@ def add_train_reservation(dbconn, event_id, self_transaction):
 
     assert(dbconn != None)
 
-
-
     s = None
     if self_transaction == True:
         s = dbconn.session()
@@ -401,9 +407,21 @@ def add_train_reservation(dbconn, event_id, self_transaction):
             # 학습할 데이터가 없다면 skip 한다.
             return
 
+        # 사용자가 악의적으로 입력한 hate speech 는 학습데이터에서 제외한다.
+        filtered_texts = []
+        for text in texts:
+            if is_badwords(text):
+                continue
+            else:
+                filtered_texts.append(text)
+
+        if len(filtered_texts) <= 0:
+            # 학습할 데이터가 없다면 skip 한다.
+            return
+
         tb_models = models.Models(dbconn)
         _, _, _, _, train_prefix, _ = tb_models.get_models_by_eventid(event_id, 'T')
-        data = strings2trainable(train_prefix, texts)
+        data = strings2trainable(train_prefix, filtered_texts)
 
         tb_train_data = train_data.TrainData(dbconn)
         train_data_id = tb_train_data.add_train_data(event_id, data)

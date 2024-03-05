@@ -106,6 +106,11 @@ class CommonTrainer():
         return trained
 
     def push(self, path, token_path):
+        # private 으로 올리는것이 좋다.
+        # 자동 재학습: epochs <-> 4 , over fitting 이 심해질 수 있다.
+        #              평가 후 실질적인 향상이 있을 경우에만 반영되게 
+        #              ( 잘 평가하는 방법도 고민이 필요 )
+        #     
         token = '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'
         self.best_model = GPT2LMHeadModel.from_pretrained("./best_model")
         self.best_model = self.best_model.to(self.device)
