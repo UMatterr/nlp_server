@@ -30,7 +30,7 @@ class TyposCorrector():
         try:
             output_text = spell_checker.check(input_text).as_dict()['checked']
         except Exception as e:
-            logger_main.warn("naver spell checker failed.")
+            logger_main().warn("naver spell checker failed.")
         else:
             converted = True
 
