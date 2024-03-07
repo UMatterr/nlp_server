@@ -1,8 +1,8 @@
-###Using the current generation pipeline is not sufficient. Therefore, I have concluded that I should try the following approaches:
+Using the current generation pipeline is not sufficient. Therefore, I have concluded that I should try the following approaches:
 
-1) Generating text using ChatGPT and LangChain,
+1) Fine-tuning an existing model, 
 
-2) Fine-tuning an existing model, and
+2) Generating text using ChatGPT and LangChain, and
 
 3) Exploring other approaches
 
